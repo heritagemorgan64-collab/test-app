@@ -1167,6 +1167,14 @@ function drawSequenceChart(numbers) {
 }
 
 </script>
+    <script>
+const originalAnalyzeData = window.analyzeData;
+
+window.analyzeData = function() {
+    originalAnalyzeData();
+    drawSequenceChart();
+};
+    </script>
 
 </body>
   </html>
