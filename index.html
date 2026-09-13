@@ -8,7 +8,7 @@
 
 <!-- Excel/CSV reader -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 * {
     box-sizing: border-box;
@@ -266,7 +266,19 @@ No file selected.
 </div>
 
 
-<div class="card">
+ <div class="card">
+
+<h2>📉 Sequence Chart</h2>
+
+<p>
+Visual representation of your numerical sequence.
+</p>
+
+<div style="position:relative;width:100%;height:350px;">
+    <canvas id="sequenceChart"></canvas>
+</div>
+
+ </div><div class="card">
 
 <h2>🔍 Pattern Detection</h2>
 
@@ -1088,6 +1100,70 @@ function previewVideo(event) {
     video.src = url;
 
     video.style.display = "block";
+} /* =========================
+   SEQUENCE CHART
+========================= */
+
+let sequenceChart = null;
+
+function drawSequenceChart(numbers) {
+    const canvas = document.getElementById("sequenceChart");
+
+    if (!canvas) return;
+
+    if (sequenceChart) {
+        sequenceChart.destroy();
+    }
+
+    const labels = numbers.map((_, index) => index + 1);
+
+    sequenceChart = new Chart(canvas, {
+        type: "line",
+
+        data: {
+            labels: labels,
+
+            datasets: [{
+                label: "Sequence",
+                data: numbers,
+                borderWidth: 3,
+                tension: 0.25,
+                pointRadius: 4,
+                fill: false
+            }]
+        },
+
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+
+            plugins: {
+                legend: {
+                    display: true
+                },
+
+                tooltip: {
+                    enabled: true
+                }
+            },
+
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: "Data Point"
+                    }
+                },
+
+                y: {
+                    title: {
+                        display: true,
+                        text: "Value"
+                    }
+                }
+            }
+        }
+    });
 }
 
 </script>
