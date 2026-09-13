@@ -278,6 +278,48 @@ Visual representation of your numerical sequence.
     <canvas id="sequenceChart"></canvas>
 </div>
 
+<div class="card">
+<h2>📊 Advanced Statistics</h2>
+
+<div class="grid">
+
+<div class="stat">
+<div class="stat-title">Median</div>
+<div class="stat-value" id="median">-</div>
+</div>
+
+<div class="stat">
+<div class="stat-title">Mode</div>
+<div class="stat-value" id="mode">-</div>
+</div>
+
+<div class="stat">
+<div class="stat-title">Range</div>
+<div class="stat-value" id="range">-</div>
+</div>
+
+<div class="stat">
+<div class="stat-title">Standard Deviation</div>
+<div class="stat-value" id="standardDeviation">-</div>
+</div>
+
+<div class="stat">
+<div class="stat-title">Variance</div>
+<div class="stat-value" id="variance">-</div>
+</div>
+
+<div class="stat">
+<div class="stat-title">Q1</div>
+<div class="stat-value" id="q1">-</div>
+</div>
+
+<div class="stat">
+<div class="stat-title">Q3</div>
+<div class="stat-value" id="q3">-</div>
+</div>
+
+</div>
+</div>
  </div><div class="card">
 
 <h2>🔍 Pattern Detection</h2>
@@ -400,6 +442,56 @@ function formatNumber(number) {
         ? number.toString()
         : number.toFixed(4).replace(/0+$/, "").replace(/\.$/, "");
 }
+    function updateAdvancedStatistics(numbers) {
+    if (!numbers.length) return;
+
+    const sorted = [...numbers].sort((a, b) => a - b);
+
+    const middle = Math.floor(sorted.length / 2);
+
+    const median = sorted.length % 2
+        ? sorted[middle]
+        : (sorted[middle - 1] + sorted[middle]) / 2;
+
+    const frequency = {};
+
+    numbers.forEach(n => {
+        frequency[n] = (frequency[n] || 0) + 1;
+    });
+
+    const maxFrequency = Math.max(...Object.values(frequency));
+
+    const modes = Object.keys(frequency)
+        .filter(n => frequency[n] === maxFrequency)
+        .map(Number);
+
+    const range = Math.max(...numbers) - Math.min(...numbers);
+
+    const average =
+        numbers.reduce((a, b) => a + b, 0) / numbers.length;
+
+    const variance =
+        numbers.reduce(
+            (sum, n) => sum + Math.pow(n - average, 2),
+            0
+        ) / numbers.length;
+
+    const standardDeviation = Math.sqrt(variance);
+
+    document.getElementById("median").textContent =
+        formatNumber(median);
+
+    document.getElementById("mode").textContent =
+        maxFrequency > 1
+            ? modes.map(formatNumber).join(", ")
+            : "No mode";
+
+    document.getElementById("range").textContent =
+        formatNumber(range);
+
+    document.getElementById("standardDeviation").textContent =
+        formatNumber(standardDeviation);
+        }
 
 
 /* =========================
@@ -519,6 +611,7 @@ function analyzeData() {
         outliers.length
             ? outliers.map(formatNumber).join(", ")
             : "None detected";
+    updateAdvancedStatistics(numbers);
 }
 
 
