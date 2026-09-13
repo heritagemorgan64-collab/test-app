@@ -491,7 +491,18 @@ function formatNumber(number) {
 
     document.getElementById("standardDeviation").textContent =
         formatNumber(standardDeviation);
-        }
+        document.getElementById("variance").textContent =
+    formatNumber(variance);
+
+const q1 = sorted[Math.floor((sorted.length - 1) * 0.25)];
+const q3 = sorted[Math.floor((sorted.length - 1) * 0.75)];
+
+document.getElementById("q1").textContent =
+    formatNumber(q1);
+
+document.getElementById("q3").textContent =
+    formatNumber(q3);
+    }
 
 
 /* =========================
