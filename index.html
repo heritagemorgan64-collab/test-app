@@ -3,754 +3,1094 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Sequence AI Analyzer</title>
+
+<!-- Excel/CSV reader -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <style>
 * {
-  box-sizing: border-box;
+    box-sizing: border-box;
 }
 
 body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: #f4f7fb;
-  color: #172033;
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #0f172a;
+    color: #f8fafc;
 }
 
-header {
-  background: #172033;
-  color: white;
-  padding: 30px 18px;
-  text-align: center;
+.container {
+    width: 95%;
+    max-width: 900px;
+    margin: auto;
+    padding: 20px 0 50px;
 }
 
-header h1 {
-  margin: 0 0 8px;
-  font-size: 30px;
+h1 {
+    text-align: center;
+    margin-bottom: 8px;
 }
 
-header p {
-  margin: 0;
-  color: #cbd5e1;
-}
-
-main {
-  max-width: 1000px;
-  margin: 25px auto;
-  padding: 0 15px;
+.subtitle {
+    text-align: center;
+    color: #94a3b8;
+    margin-bottom: 25px;
 }
 
 .card {
-  background: white;
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 18px;
-  box-shadow: 0 4px 18px #00000012;
+    background: #1e293b;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.25);
 }
 
 h2 {
-  margin-top: 0;
+    margin-top: 0;
 }
 
 textarea {
-  width: 100%;
-  min-height: 150px;
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
-  padding: 14px;
-  font-size: 16px;
-  resize: vertical;
-  outline: none;
+    width: 100%;
+    min-height: 180px;
+    resize: vertical;
+    border: 1px solid #475569;
+    border-radius: 10px;
+    padding: 15px;
+    background: #0f172a;
+    color: white;
+    font-size: 16px;
 }
 
-textarea:focus {
-  border-color: #2563eb;
+input[type="file"] {
+    width: 100%;
+    padding: 12px;
+    border: 1px dashed #64748b;
+    border-radius: 10px;
+    background: #0f172a;
+    color: white;
+    margin: 10px 0;
 }
 
-button,
-.file-label {
-  display: inline-block;
-  border: 0;
-  border-radius: 10px;
-  padding: 12px 18px;
-  background: #2563eb;
-  color: white;
-  font-weight: bold;
-  cursor: pointer;
-  margin-top: 10px;
+button {
+    border: none;
+    border-radius: 10px;
+    padding: 13px 18px;
+    margin: 5px;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
 }
 
-button.secondary {
-  background: #475569;
+.analyze {
+    background: #22c55e;
+    color: white;
 }
 
-button.ai {
-  background: #7c3aed;
+.clear {
+    background: #ef4444;
+    color: white;
 }
 
-input[type=file] {
-  display: none;
+.ai {
+    background: #8b5cf6;
+    color: white;
 }
 
-video {
-  width: 100%;
-  max-height: 360px;
-  border-radius: 12px;
-  background: #0f172a;
-  margin-top: 14px;
+.secondary {
+    background: #334155;
+    color: white;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 12px;
-}
-
-.stat {
-  background: #f8fafc;
-  border-radius: 12px;
-  padding: 15px;
-  border: 1px solid #e2e8f0;
-}
-
-.stat span {
-  color: #64748b;
-  font-size: 14px;
-}
-
-.stat b {
-  display: block;
-  font-size: 22px;
-  margin-top: 5px;
-}
-
-.result {
-  padding: 14px;
-  background: #eff6ff;
-  border-left: 4px solid #2563eb;
-  border-radius: 8px;
-  margin: 10px 0;
-}
-
-.warning {
-  background: #fff7ed;
-  border-left-color: #f97316;
-}
-
-.small {
-  font-size: 13px;
-  color: #64748b;
+button:hover {
+    opacity: 0.88;
 }
 
 .status {
-  margin-top: 12px;
-  padding: 12px;
-  border-radius: 8px;
-  background: #f1f5f9;
-  display: none;
+    margin-top: 10px;
+    color: #94a3b8;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+}
+
+.stat {
+    background: #0f172a;
+    border-radius: 12px;
+    padding: 15px;
+}
+
+.stat-title {
+    color: #94a3b8;
+    font-size: 13px;
+}
+
+.stat-value {
+    font-size: 20px;
+    font-weight: bold;
+    margin-top: 6px;
+    word-break: break-word;
+}
+
+.result {
+    background: #0f172a;
+    border-radius: 12px;
+    padding: 15px;
+    margin-top: 12px;
+}
+
+.result strong {
+    color: #38bdf8;
+}
+
+.warning {
+    color: #fbbf24;
+}
+
+.success {
+    color: #4ade80;
+}
+
+.error {
+    color: #f87171;
 }
 
 footer {
-  text-align: center;
-  padding: 25px;
-  color: #64748b;
-  font-size: 13px;
+    text-align: center;
+    color: #64748b;
+    margin-top: 30px;
+    font-size: 13px;
 }
 </style>
 </head>
 
 <body>
 
-<header>
-  <h1>Sequence AI Analyzer</h1>
-  <p>Discover patterns, sequences, cycles, trends and anomalies.</p>
-</header>
+<div class="container">
 
-<main>
+<h1>Sequence AI Analyzer</h1>
 
-<section class="card">
-  <h2>1. Enter your data</h2>
+<div class="subtitle">
+Analyze numerical data, detect patterns and explore statistical behavior.
+</div>
 
-  <p class="small">
-    Enter numbers separated by commas, spaces, semicolons or new lines.
-  </p>
+<div class="card">
 
-  <textarea
-    id="data"
-    placeholder="Example:
-2, 4, 6, 8, 10, 12, 14
+<h2>📊 Enter Your Data</h2>
 
-or
+<p>
+Enter numbers separated by commas, spaces, semicolons or new lines.
+</p>
 
-5
-10
-15
-20">
-  </textarea>
+<textarea id="dataInput"
+placeholder="Example:
+1, 2, 3, 4, 5, 6, 7"></textarea>
 
-  <br>
+<br>
 
-  <button onclick="analyze()">Analyze Data</button>
-  <button class="secondary" onclick="clearAll()">Clear</button>
-  <button class="ai" onclick="requestAIAnalysis()">
-    Deep AI Analysis
-  </button>
+<button class="analyze" onclick="analyzeData()">
+Analyze Data
+</button>
 
-  <div id="status" class="status"></div>
-</section>
+<button class="clear" onclick="clearData()">
+Clear
+</button>
+
+</div>
 
 
-<section class="card">
-  <h2>2. Screen recording</h2>
+<div class="card">
 
-  <p class="small">
-    Upload a screen recording to preview it. Automatic number extraction
-    will be added through OCR in a later version.
-  </p>
+<h2>📁 Upload CSV or Excel</h2>
 
-  <label class="file-label" for="videoInput">
-    Choose Screen Recording
-  </label>
+<p>
+Upload a CSV, XLS or XLSX file. The analyzer will extract the numerical values automatically.
+</p>
 
-  <input
-    id="videoInput"
-    type="file"
-    accept="video/*"
-  >
+<input
+type="file"
+id="fileInput"
+accept=".csv,.xls,.xlsx"
+onchange="handleFileUpload(event)"
+>
 
-  <video
-    id="video"
-    controls
-    style="display:none">
-  </video>
-</section>
+<div id="uploadStatus" class="status">
+No file selected.
+</div>
+
+</div>
 
 
-<section class="card" id="results" style="display:none">
+<div class="card">
 
-  <h2>Analysis Results</h2>
+<h2>📈 Basic Statistics</h2>
 
-  <div class="grid">
+<div class="grid">
 
-    <div class="stat">
-      <span>Data points</span>
-      <b id="count">0</b>
-    </div>
+<div class="stat">
+<div class="stat-title">Data Points</div>
+<div class="stat-value" id="dataPoints">-</div>
+</div>
 
-    <div class="stat">
-      <span>Unique values</span>
-      <b id="unique">0</b>
-    </div>
+<div class="stat">
+<div class="stat-title">Unique Values</div>
+<div class="stat-value" id="uniqueValues">-</div>
+</div>
 
-    <div class="stat">
-      <span>Most common</span>
-      <b id="common">—</b>
-    </div>
+<div class="stat">
+<div class="stat-title">Minimum</div>
+<div class="stat-value" id="minimum">-</div>
+</div>
 
-    <div class="stat">
-      <span>Average</span>
-      <b id="average">—</b>
-    </div>
+<div class="stat">
+<div class="stat-title">Maximum</div>
+<div class="stat-value" id="maximum">-</div>
+</div>
 
-    <div class="stat">
-      <span>Minimum</span>
-      <b id="minimum">—</b>
-    </div>
+<div class="stat">
+<div class="stat-title">Average</div>
+<div class="stat-value" id="average">-</div>
+</div>
 
-    <div class="stat">
-      <span>Maximum</span>
-      <b id="maximum">—</b>
-    </div>
+<div class="stat">
+<div class="stat-title">Most Common</div>
+<div class="stat-value" id="mostCommon">-</div>
+</div>
 
-  </div>
+</div>
 
-  <br>
+</div>
 
-  <h3>Findings</h3>
 
-  <div id="findings"></div>
+<div class="card">
 
-</section>
+<h2>🔍 Pattern Detection</h2>
 
-</main>
+<div id="patternResults">
+
+<div class="result">
+<strong>Arithmetic Sequence:</strong>
+<span id="arithmetic">-</span>
+</div>
+
+<div class="result">
+<strong>Geometric Sequence:</strong>
+<span id="geometric">-</span>
+</div>
+
+<div class="result">
+<strong>Repeating Period:</strong>
+<span id="period">-</span>
+</div>
+
+<div class="result">
+<strong>Longest Run:</strong>
+<span id="longestRun">-</span>
+</div>
+
+<div class="result">
+<strong>Average Change:</strong>
+<span id="averageChange">-</span>
+</div>
+
+<div class="result">
+<strong>IQR Outliers:</strong>
+<span id="outliers">-</span>
+</div>
+
+</div>
+
+</div>
+
+
+<div class="card">
+
+<h2>🤖 Deep AI Analysis</h2>
+
+<p>
+Use this section for deeper interpretation of your dataset.
+</p>
+
+<button class="ai" onclick="deepAnalysis()">
+Run Deep Analysis
+</button>
+
+<div id="aiResult" class="result">
+AI analysis has not been run yet.
+</div>
+
+</div>
+
+
+<div class="card">
+
+<h2>🎥 Screen Recording</h2>
+
+<p>
+You can upload a screen recording for viewing. Automatic number extraction from video will be added later.
+</p>
+
+<input
+type="file"
+id="videoInput"
+accept="video/*"
+onchange="previewVideo(event)"
+>
+
+<video
+id="videoPreview"
+controls
+style="width:100%;margin-top:15px;border-radius:12px;display:none;">
+</video>
+
+</div>
+
 
 <footer>
-  Sequence AI Analyzer — Private analysis platform
+Sequence AI Analyzer • Pattern analysis is statistical and does not guarantee future events.
 </footer>
+
+</div>
 
 
 <script>
 
-const videoInput = document.getElementById("videoInput");
-const video = document.getElementById("video");
-
-videoInput.addEventListener("change", () => {
-
-  const file = videoInput.files[0];
-
-  if (!file) return;
-
-  video.src = URL.createObjectURL(file);
-  video.style.display = "block";
-});
-
+/* =========================
+   GET NUMBERS
+========================= */
 
 function getNumbers() {
 
-  return document.getElementById("data").value
+    const text = document.getElementById("dataInput").value;
 
-    .split(/[,\s;]+/)
-
-    .map(x => Number(x.trim()))
-
-    .filter(x => Number.isFinite(x));
+    return text
+        .split(/[,\s;]+/)
+        .map(Number)
+        .filter(n => Number.isFinite(n));
 }
 
 
-function approx(a, b, tolerance = 1e-9) {
+/* =========================
+   FORMAT NUMBER
+========================= */
 
-  return Math.abs(a - b) <= tolerance;
+function formatNumber(number) {
 
+    if (!Number.isFinite(number)) {
+        return "-";
+    }
+
+    return Number.isInteger(number)
+        ? number.toString()
+        : number.toFixed(4).replace(/0+$/, "").replace(/\.$/, "");
 }
 
 
-function frequency(arr) {
+/* =========================
+   ANALYZE DATA
+========================= */
 
-  const map = new Map();
+function analyzeData() {
 
-  arr.forEach(x => {
+    const numbers = getNumbers();
 
-    map.set(
-      x,
-      (map.get(x) || 0) + 1
-    );
+    if (numbers.length === 0) {
 
-  });
+        alert("Please enter or upload some numbers first.");
 
-  return [...map.entries()]
-    .sort((a, b) => b[1] - a[1]);
+        return;
+    }
+
+    const sorted = [...numbers].sort((a,b) => a-b);
+
+    const unique = [...new Set(numbers)];
+
+    const min = Math.min(...numbers);
+
+    const max = Math.max(...numbers);
+
+    const average =
+        numbers.reduce((a,b) => a+b, 0) / numbers.length;
+
+    /* Frequency */
+
+    const frequency = {};
+
+    numbers.forEach(n => {
+
+        frequency[n] = (frequency[n] || 0) + 1;
+
+    });
+
+    let mostCommon = numbers[0];
+
+    Object.keys(frequency).forEach(n => {
+
+        if (
+            frequency[n] >
+            frequency[mostCommon]
+        ) {
+            mostCommon = Number(n);
+        }
+
+    });
+
+
+    document.getElementById("dataPoints").textContent =
+        numbers.length;
+
+    document.getElementById("uniqueValues").textContent =
+        unique.length;
+
+    document.getElementById("minimum").textContent =
+        formatNumber(min);
+
+    document.getElementById("maximum").textContent =
+        formatNumber(max);
+
+    document.getElementById("average").textContent =
+        formatNumber(average);
+
+    document.getElementById("mostCommon").textContent =
+        formatNumber(Number(mostCommon));
+
+
+    /* Arithmetic */
+
+    const arithmetic = detectArithmetic(numbers);
+
+    document.getElementById("arithmetic").textContent =
+        arithmetic;
+
+
+    /* Geometric */
+
+    const geometric = detectGeometric(numbers);
+
+    document.getElementById("geometric").textContent =
+        geometric;
+
+
+    /* Repeating */
+
+    const period = detectPeriod(numbers);
+
+    document.getElementById("period").textContent =
+        period;
+
+
+    /* Longest run */
+
+    const run = longestRun(numbers);
+
+    document.getElementById("longestRun").textContent =
+        run;
+
+
+    /* Average change */
+
+    const change = averageChange(numbers);
+
+    document.getElementById("averageChange").textContent =
+        formatNumber(change);
+
+
+    /* Outliers */
+
+    const outliers = detectOutliers(sorted);
+
+    document.getElementById("outliers").textContent =
+        outliers.length
+            ? outliers.map(formatNumber).join(", ")
+            : "None detected";
 }
 
 
-function detectArithmetic(a) {
+/* =========================
+   ARITHMETIC
+========================= */
 
-  if (a.length < 3) return null;
+function detectArithmetic(numbers) {
 
-  const difference = a[1] - a[0];
+    if (numbers.length < 3) {
 
-  const valid = a.every((x, i) => {
+        return "Not enough data";
+    }
 
-    if (i < 2) return true;
+    const difference =
+        numbers[1] - numbers[0];
 
-    return approx(
-      x - a[i - 1],
-      difference
-    );
+    for (let i = 2; i < numbers.length; i++) {
 
-  });
+        if (
+            Math.abs(
+                (numbers[i] - numbers[i-1]) -
+                difference
+            ) > 0.000001
+        ) {
 
-  return valid ? difference : null;
-}
+            return "No";
 
-
-function detectGeometric(a) {
-
-  if (a.length < 3) return null;
-
-  if (a[0] === 0) return null;
-
-  const ratio = a[1] / a[0];
-
-  if (!Number.isFinite(ratio)) return null;
-
-  const valid = a.every((x, i) => {
-
-    if (i < 2) return true;
-
-    if (a[i - 1] === 0) return false;
-
-    return approx(
-      x / a[i - 1],
-      ratio
-    );
-
-  });
-
-  return valid ? ratio : null;
-}
-
-
-function smallestRepeatingPeriod(a) {
-
-  for (
-    let period = 1;
-    period <= Math.floor(a.length / 2);
-    period++
-  ) {
-
-    let valid = true;
-
-    for (
-      let i = period;
-      i < a.length;
-      i++
-    ) {
-
-      if (!approx(a[i], a[i % period])) {
-
-        valid = false;
-        break;
-
-      }
+        }
 
     }
 
-    if (valid) return period;
-
-  }
-
-  return null;
+    return "Yes • Difference = " +
+        formatNumber(difference);
 }
 
 
-function longestRun(a) {
+/* =========================
+   GEOMETRIC
+========================= */
 
-  let best = {
-    value: a[0],
-    length: 1
-  };
+function detectGeometric(numbers) {
 
-  let current = {
-    value: a[0],
-    length: 1
-  };
+    if (numbers.length < 3) {
 
-  for (let i = 1; i < a.length; i++) {
+        return "Not enough data";
+    }
 
-    if (approx(a[i], a[i - 1])) {
+    if (numbers[0] === 0) {
 
-      current.length++;
+        return "Cannot determine";
+    }
+
+    const ratio =
+        numbers[1] / numbers[0];
+
+    for (let i = 2; i < numbers.length; i++) {
+
+        if (numbers[i-1] === 0) {
+
+            return "Cannot determine";
+        }
+
+        const currentRatio =
+            numbers[i] / numbers[i-1];
+
+        if (
+            Math.abs(currentRatio - ratio)
+            > 0.000001
+        ) {
+
+            return "No";
+
+        }
+
+    }
+
+    return "Yes • Ratio = " +
+        formatNumber(ratio);
+}
+
+
+/* =========================
+   REPEATING PERIOD
+========================= */
+
+function detectPeriod(numbers) {
+
+    const maxPeriod =
+        Math.floor(numbers.length / 2);
+
+    for (
+        let period = 1;
+        period <= maxPeriod;
+        period++
+    ) {
+
+        let valid = true;
+
+        for (
+            let i = period;
+            i < numbers.length;
+            i++
+        ) {
+
+            if (numbers[i] !== numbers[i % period]) {
+
+                valid = false;
+                break;
+
+            }
+
+        }
+
+        if (valid) {
+
+            return period + " values";
+
+        }
+
+    }
+
+    return "No clear repeating period";
+}
+
+
+/* =========================
+   LONGEST RUN
+========================= */
+
+function longestRun(numbers) {
+
+    if (numbers.length === 0) {
+
+        return "-";
+    }
+
+    let longest = 1;
+
+    let current = 1;
+
+    let value = numbers[0];
+
+    for (let i = 1; i < numbers.length; i++) {
+
+        if (numbers[i] === numbers[i-1]) {
+
+            current++;
+
+        } else {
+
+            if (current > longest) {
+
+                longest = current;
+                value = numbers[i-1];
+
+            }
+
+            current = 1;
+
+        }
+
+    }
+
+    if (current > longest) {
+
+        longest = current;
+        value = numbers[numbers.length-1];
+
+    }
+
+    return longest +
+        " consecutive × " +
+        formatNumber(value);
+}
+
+
+/* =========================
+   AVERAGE CHANGE
+========================= */
+
+function averageChange(numbers) {
+
+    if (numbers.length < 2) {
+
+        return 0;
+    }
+
+    let total = 0;
+
+    for (let i = 1; i < numbers.length; i++) {
+
+        total += numbers[i] - numbers[i-1];
+
+    }
+
+    return total / (numbers.length - 1);
+}
+
+
+/* =========================
+   OUTLIERS
+========================= */
+
+function detectOutliers(sorted) {
+
+    if (sorted.length < 4) {
+
+        return [];
+    }
+
+    const q1 = percentile(sorted, 25);
+
+    const q3 = percentile(sorted, 75);
+
+    const iqr = q3 - q1;
+
+    const lower =
+        q1 - 1.5 * iqr;
+
+    const upper =
+        q3 + 1.5 * iqr;
+
+    return sorted.filter(
+        n => n < lower || n > upper
+    );
+}
+
+
+/* =========================
+   PERCENTILE
+========================= */
+
+function percentile(sorted, percentile) {
+
+    const index =
+        (percentile / 100) *
+        (sorted.length - 1);
+
+    const lower =
+        Math.floor(index);
+
+    const upper =
+        Math.ceil(index);
+
+    if (lower === upper) {
+
+        return sorted[lower];
+
+    }
+
+    return (
+        sorted[lower] +
+        (sorted[upper] - sorted[lower]) *
+        (index - lower)
+    );
+}
+
+
+/* =========================
+   CSV / EXCEL UPLOAD
+========================= */
+
+function handleFileUpload(event) {
+
+    const file =
+        event.target.files[0];
+
+    if (!file) {
+
+        return;
+    }
+
+    const status =
+        document.getElementById("uploadStatus");
+
+    status.textContent =
+        "Reading " + file.name + "...";
+
+
+    const reader =
+        new FileReader();
+
+
+    reader.onload = function(e) {
+
+        try {
+
+            const data =
+                new Uint8Array(e.target.result);
+
+            const workbook =
+                XLSX.read(data, {
+                    type: "array"
+                });
+
+
+            const firstSheet =
+                workbook.Sheets[
+                    workbook.SheetNames[0]
+                ];
+
+
+            const rows =
+                XLSX.utils.sheet_to_json(
+                    firstSheet,
+                    {
+                        header: 1,
+                        defval: ""
+                    }
+                );
+
+
+            const numbers = [];
+
+
+            rows.forEach(row => {
+
+                row.forEach(cell => {
+
+                    if (
+                        typeof cell === "number" &&
+                        Number.isFinite(cell)
+                    ) {
+
+                        numbers.push(cell);
+
+                    } else if (
+                        typeof cell === "string"
+                    ) {
+
+                        const parts =
+                            cell.split(/[,\s;]+/);
+
+                        parts.forEach(part => {
+
+                            const n =
+                                Number(part);
+
+                            if (
+                                Number.isFinite(n) &&
+                                part.trim() !== ""
+                            ) {
+
+                                numbers.push(n);
+
+                            }
+
+                        });
+
+                    }
+
+                });
+
+            });
+
+
+            if (numbers.length === 0) {
+
+                status.innerHTML =
+                    '<span class="error">No numerical values were found in this file.</span>';
+
+                return;
+            }
+
+
+            document.getElementById("dataInput").value =
+                numbers.join(", ");
+
+
+            status.innerHTML =
+                '<span class="success">' +
+                "Successfully loaded " +
+                numbers.length +
+                " numbers from " +
+                file.name +
+                "." +
+                "</span>";
+
+
+            analyzeData();
+
+
+        } catch(error) {
+
+            console.error(error);
+
+            status.innerHTML =
+                '<span class="error">Could not read this file.</span>';
+
+        }
+
+    };
+
+
+    reader.readAsArrayBuffer(file);
+}
+
+
+/* =========================
+   CLEAR
+========================= */
+
+function clearData() {
+
+    document.getElementById("dataInput").value = "";
+
+    document.getElementById("fileInput").value = "";
+
+    document.getElementById("uploadStatus").textContent =
+        "No file selected.";
+
+
+    const ids = [
+        "dataPoints",
+        "uniqueValues",
+        "minimum",
+        "maximum",
+        "average",
+        "mostCommon",
+        "arithmetic",
+        "geometric",
+        "period",
+        "longestRun",
+        "averageChange",
+        "outliers"
+    ];
+
+
+    ids.forEach(id => {
+
+        document.getElementById(id).textContent = "-";
+
+    });
+
+
+    document.getElementById("aiResult").textContent =
+        "AI analysis has not been run yet.";
+}
+
+
+/* =========================
+   DEEP ANALYSIS
+========================= */
+
+function deepAnalysis() {
+
+    const numbers = getNumbers();
+
+    if (numbers.length === 0) {
+
+        alert("Please enter or upload data first.");
+
+        return;
+    }
+
+    const average =
+        numbers.reduce((a,b) => a+b, 0)
+        / numbers.length;
+
+    const min =
+        Math.min(...numbers);
+
+    const max =
+        Math.max(...numbers);
+
+    const arithmetic =
+        detectArithmetic(numbers);
+
+    const geometric =
+        detectGeometric(numbers);
+
+    const period =
+        detectPeriod(numbers);
+
+    const change =
+        averageChange(numbers);
+
+
+    let interpretation = "";
+
+
+    interpretation +=
+        "The dataset contains " +
+        numbers.length +
+        " numerical values. ";
+
+
+    interpretation +=
+        "The average is " +
+        formatNumber(average) +
+        ", with a minimum of " +
+        formatNumber(min) +
+        " and a maximum of " +
+        formatNumber(max) +
+        ". ";
+
+
+    if (arithmetic.startsWith("Yes")) {
+
+        interpretation +=
+            "The data follows an arithmetic sequence pattern. ";
 
     } else {
 
-      current = {
-        value: a[i],
-        length: 1
-      };
+        interpretation +=
+            "The data does not form a clear arithmetic sequence. ";
 
     }
 
-    if (current.length > best.length) {
 
-      best = {
-        ...current
-      };
+    if (geometric.startsWith("Yes")) {
+
+        interpretation +=
+            "A geometric pattern was also detected. ";
 
     }
 
-  }
 
-  return best;
+    if (
+        period !== "No clear repeating period"
+    ) {
+
+        interpretation +=
+            "A repeating structure may exist with a period of " +
+            period +
+            ". ";
+
+    }
+
+
+    if (change > 0) {
+
+        interpretation +=
+            "The average change between consecutive values is positive.";
+
+    } else if (change < 0) {
+
+        interpretation +=
+            "The average change between consecutive values is negative.";
+
+    } else {
+
+        interpretation +=
+            "There is no average directional change.";
+
+    }
+
+
+    document.getElementById("aiResult").textContent =
+        interpretation;
 }
 
 
-function percentile(a, p) {
+/* =========================
+   VIDEO PREVIEW
+========================= */
 
-  const position = (a.length - 1) * p;
+function previewVideo(event) {
 
-  const base = Math.floor(position);
+    const file =
+        event.target.files[0];
 
-  const remainder = position - base;
+    const video =
+        document.getElementById("videoPreview");
 
-  return a[base] +
-    (
-      a[base + 1] !== undefined
-        ? remainder * (a[base + 1] - a[base])
-        : 0
-    );
-}
 
+    if (!file) {
 
-function detectOutliers(a) {
+        video.style.display = "none";
 
-  if (a.length < 5) return [];
+        return;
+    }
 
-  const sorted = [...a].sort(
-    (x, y) => x - y
-  );
 
-  const q1 = percentile(sorted, 0.25);
-  const q3 = percentile(sorted, 0.75);
+    const url =
+        URL.createObjectURL(file);
 
-  const iqr = q3 - q1;
+    video.src = url;
 
-  const low = q1 - 1.5 * iqr;
-  const high = q3 + 1.5 * iqr;
-
-  return a.filter(
-    x => x < low || x > high
-  );
-}
-
-
-function addFinding(text, warning = false) {
-
-  const div = document.createElement("div");
-
-  div.className =
-    "result" +
-    (warning ? " warning" : "");
-
-  div.textContent = text;
-
-  document
-    .getElementById("findings")
-    .appendChild(div);
-}
-
-
-function analyze() {
-
-  const data = getNumbers();
-
-  const results =
-    document.getElementById("results");
-
-  const findings =
-    document.getElementById("findings");
-
-  if (data.length < 2) {
-
-    alert(
-      "Please enter at least 2 numbers."
-    );
-
-    return;
-  }
-
-  results.style.display = "block";
-
-  findings.innerHTML = "";
-
-  document.getElementById("count")
-    .textContent = data.length;
-
-  document.getElementById("unique")
-    .textContent = new Set(data).size;
-
-
-  const freq = frequency(data);
-
-  document.getElementById("common")
-    .textContent =
-      `${freq[0][0]} (${freq[0][1]}×)`;
-
-
-  const average =
-    data.reduce(
-      (sum, x) => sum + x,
-      0
-    ) / data.length;
-
-  document.getElementById("average")
-    .textContent =
-      average.toFixed(4);
-
-
-  document.getElementById("minimum")
-    .textContent =
-      Math.min(...data);
-
-
-  document.getElementById("maximum")
-    .textContent =
-      Math.max(...data);
-
-
-  addFinding(
-    `Sequence preview: ${data
-      .slice(0, 20)
-      .join(", ")}${data.length > 20 ? " …" : ""}`
-  );
-
-
-  const arithmetic =
-    detectArithmetic(data);
-
-  if (arithmetic !== null) {
-
-    const next =
-      data[data.length - 1] +
-      arithmetic;
-
-    addFinding(
-      `Arithmetic sequence detected. ` +
-      `Constant difference: ${arithmetic}. ` +
-      `Next-value estimate: ${next}.`
-    );
-
-  } else {
-
-    addFinding(
-      "No simple arithmetic sequence detected."
-    );
-
-  }
-
-
-  const geometric =
-    detectGeometric(data);
-
-  if (geometric !== null) {
-
-    const next =
-      data[data.length - 1] *
-      geometric;
-
-    addFinding(
-      `Geometric sequence detected. ` +
-      `Constant ratio: ${geometric}. ` +
-      `Next-value estimate: ${next}.`
-    );
-
-  }
-
-
-  const period =
-    smallestRepeatingPeriod(data);
-
-  if (period) {
-
-    addFinding(
-      `Repeating cycle detected with ` +
-      `a period of ${period}: ` +
-      `${data.slice(0, period).join(", ")}.`
-    );
-
-  } else {
-
-    addFinding(
-      "No exact repeating cycle was found."
-    );
-
-  }
-
-
-  const run =
-    longestRun(data);
-
-  if (run.length >= 2) {
-
-    addFinding(
-      `Longest consecutive repeat: ` +
-      `${run.value} appears ` +
-      `${run.length} times in a row.`
-    );
-
-  }
-
-
-  const changes =
-    data.slice(1)
-      .map((x, i) => x - data[i]);
-
-
-  if (changes.length) {
-
-    const averageChange =
-      changes.reduce(
-        (sum, x) => sum + x,
-        0
-      ) / changes.length;
-
-    addFinding(
-      `Average change between consecutive ` +
-      `values: ${averageChange.toFixed(4)}.`
-    );
-
-  }
-
-
-  const outliers =
-    detectOutliers(data);
-
-  if (outliers.length) {
-
-    addFinding(
-      `Potential statistical outliers: ` +
-      `${outliers.join(", ")}.`,
-      true
-    );
-
-  } else {
-
-    addFinding(
-      "No strong statistical outliers detected."
-    );
-
-  }
-
-
-  addFinding(
-    "Pattern detection identifies mathematical " +
-    "properties in the supplied data. " +
-    "It does not guarantee future events.",
-    true
-  );
-
-}
-
-
-function requestAIAnalysis() {
-
-  const data = getNumbers();
-
-  if (data.length < 2) {
-
-    alert(
-      "Enter data before requesting AI analysis."
-    );
-
-    return;
-  }
-
-
-  const status =
-    document.getElementById("status");
-
-  status.style.display = "block";
-
-  status.textContent =
-    "AI connection is not connected yet. " +
-    "The secure AI backend will be added next.";
-
-}
-
-
-function clearAll() {
-
-  document.getElementById("data")
-    .value = "";
-
-  document.getElementById("results")
-    .style.display = "none";
-
-  document.getElementById("status")
-    .style.display = "none";
-
-  video.pause();
-
-  video.removeAttribute("src");
-
-  video.load();
-
-  video.style.display = "none";
-
-  videoInput.value = "";
-
+    video.style.display = "block";
 }
 
 </script>
 
 </body>
-</html>
+  </html>
