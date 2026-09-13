@@ -1,181 +1,756 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sequence AI Analyzer</title>
 
-  <title>My Test App</title>
+<style>
+* {
+  box-sizing: border-box;
+}
 
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: Arial, sans-serif;
-    }
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f4f7fb;
+  color: #172033;
+}
 
-    body {
-      background: #f4f7fb;
-      color: #222;
-    }
+header {
+  background: #172033;
+  color: white;
+  padding: 30px 18px;
+  text-align: center;
+}
 
-    header {
-      background: #2563eb;
-      color: white;
-      padding: 30px 20px;
-      text-align: center;
-    }
+header h1 {
+  margin: 0 0 8px;
+  font-size: 30px;
+}
 
-    header h1 {
-      margin-bottom: 8px;
-    }
+header p {
+  margin: 0;
+  color: #cbd5e1;
+}
 
-    nav {
-      background: #111827;
-      display: flex;
-      justify-content: center;
-      gap: 25px;
-      padding: 15px;
-    }
+main {
+  max-width: 1000px;
+  margin: 25px auto;
+  padding: 0 15px;
+}
 
-    nav a {
-      color: white;
-      text-decoration: none;
-      font-weight: bold;
-    }
+.card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 18px;
+  box-shadow: 0 4px 18px #00000012;
+}
 
-    .hero {
-      padding: 60px 20px;
-      text-align: center;
-    }
+h2 {
+  margin-top: 0;
+}
 
-    .hero h2 {
-      font-size: 30px;
-      margin-bottom: 15px;
-      color: #1e40af;
-    }
+textarea {
+  width: 100%;
+  min-height: 150px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 14px;
+  font-size: 16px;
+  resize: vertical;
+  outline: none;
+}
 
-    .hero p {
-      margin-bottom: 25px;
-      line-height: 1.6;
-    }
+textarea:focus {
+  border-color: #2563eb;
+}
 
-    button {
-      background: #2563eb;
-      color: white;
-      border: none;
-      padding: 14px 25px;
-      border-radius: 8px;
-      font-size: 16px;
-      cursor: pointer;
-    }
+button,
+.file-label {
+  display: inline-block;
+  border: 0;
+  border-radius: 10px;
+  padding: 12px 18px;
+  background: #2563eb;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 10px;
+}
 
-    .features {
-      padding: 30px 20px;
-      max-width: 900px;
-      margin: auto;
-    }
+button.secondary {
+  background: #475569;
+}
 
-    .features h2 {
-      text-align: center;
-      margin-bottom: 25px;
-    }
+button.ai {
+  background: #7c3aed;
+}
 
-    .cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 20px;
-    }
+input[type=file] {
+  display: none;
+}
 
-    .card {
-      background: white;
-      padding: 25px;
-      border-radius: 12px;
-      text-align: center;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
+video {
+  width: 100%;
+  max-height: 360px;
+  border-radius: 12px;
+  background: #0f172a;
+  margin-top: 14px;
+}
 
-    .card h3 {
-      color: #2563eb;
-      margin-bottom: 10px;
-    }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+}
 
-    footer {
-      margin-top: 40px;
-      background: #111827;
-      color: white;
-      text-align: center;
-      padding: 20px;
-    }
-  </style>
+.stat {
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 15px;
+  border: 1px solid #e2e8f0;
+}
+
+.stat span {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.stat b {
+  display: block;
+  font-size: 22px;
+  margin-top: 5px;
+}
+
+.result {
+  padding: 14px;
+  background: #eff6ff;
+  border-left: 4px solid #2563eb;
+  border-radius: 8px;
+  margin: 10px 0;
+}
+
+.warning {
+  background: #fff7ed;
+  border-left-color: #f97316;
+}
+
+.small {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.status {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  display: none;
+}
+
+footer {
+  text-align: center;
+  padding: 25px;
+  color: #64748b;
+  font-size: 13px;
+}
+</style>
 </head>
 
 <body>
 
-  <header>
-    <h1>My Test Website</h1>
-    <p>Website-to-App Converter Test</p>
-  </header>
+<header>
+  <h1>Sequence AI Analyzer</h1>
+  <p>Discover patterns, sequences, cycles, trends and anomalies.</p>
+</header>
 
-  <nav>
-    <a href="#home">Home</a>
-    <a href="#features">Features</a>
-    <a href="#contact">Contact</a>
-  </nav>
+<main>
 
-  <section class="hero" id="home">
-    <h2>Welcome!</h2>
+<section class="card">
+  <h2>1. Enter your data</h2>
 
-    <p>
-      This is a simple mobile-friendly website created
-      to test a website-to-app converter.
-    </p>
+  <p class="small">
+    Enter numbers separated by commas, spaces, semicolons or new lines.
+  </p>
 
-    <button onclick="testButton()">Test Button</button>
-  </section>
+  <textarea
+    id="data"
+    placeholder="Example:
+2, 4, 6, 8, 10, 12, 14
 
-  <section class="features" id="features">
-    <h2>Features</h2>
+or
 
-    <div class="cards">
+5
+10
+15
+20">
+  </textarea>
 
-      <div class="card">
-        <h3>Fast</h3>
-        <p>Simple and lightweight website.</p>
-      </div>
+  <br>
 
-      <div class="card">
-        <h3>Mobile</h3>
-        <p>Designed to work well on phones.</p>
-      </div>
+  <button onclick="analyze()">Analyze Data</button>
+  <button class="secondary" onclick="clearAll()">Clear</button>
+  <button class="ai" onclick="requestAIAnalysis()">
+    Deep AI Analysis
+  </button>
 
-      <div class="card">
-        <h3>Interactive</h3>
-        <p>Includes a working test button.</p>
-      </div>
+  <div id="status" class="status"></div>
+</section>
 
+
+<section class="card">
+  <h2>2. Screen recording</h2>
+
+  <p class="small">
+    Upload a screen recording to preview it. Automatic number extraction
+    will be added through OCR in a later version.
+  </p>
+
+  <label class="file-label" for="videoInput">
+    Choose Screen Recording
+  </label>
+
+  <input
+    id="videoInput"
+    type="file"
+    accept="video/*"
+  >
+
+  <video
+    id="video"
+    controls
+    style="display:none">
+  </video>
+</section>
+
+
+<section class="card" id="results" style="display:none">
+
+  <h2>Analysis Results</h2>
+
+  <div class="grid">
+
+    <div class="stat">
+      <span>Data points</span>
+      <b id="count">0</b>
     </div>
-  </section>
 
-  <section class="features" id="contact">
-    <h2>Contact</h2>
-
-    <div class="card">
-      <p>This is a test contact section.</p>
-      <br>
-      <button onclick="testButton()">Click Me</button>
+    <div class="stat">
+      <span>Unique values</span>
+      <b id="unique">0</b>
     </div>
-  </section>
 
-  <footer>
-    <p>© 2026 My Test App</p>
-  </footer>
+    <div class="stat">
+      <span>Most common</span>
+      <b id="common">—</b>
+    </div>
 
-  <script>
-    function testButton() {
-      alert("Great! The button is working.");
+    <div class="stat">
+      <span>Average</span>
+      <b id="average">—</b>
+    </div>
+
+    <div class="stat">
+      <span>Minimum</span>
+      <b id="minimum">—</b>
+    </div>
+
+    <div class="stat">
+      <span>Maximum</span>
+      <b id="maximum">—</b>
+    </div>
+
+  </div>
+
+  <br>
+
+  <h3>Findings</h3>
+
+  <div id="findings"></div>
+
+</section>
+
+</main>
+
+<footer>
+  Sequence AI Analyzer — Private analysis platform
+</footer>
+
+
+<script>
+
+const videoInput = document.getElementById("videoInput");
+const video = document.getElementById("video");
+
+videoInput.addEventListener("change", () => {
+
+  const file = videoInput.files[0];
+
+  if (!file) return;
+
+  video.src = URL.createObjectURL(file);
+  video.style.display = "block";
+});
+
+
+function getNumbers() {
+
+  return document.getElementById("data").value
+
+    .split(/[,\s;]+/)
+
+    .map(x => Number(x.trim()))
+
+    .filter(x => Number.isFinite(x));
+}
+
+
+function approx(a, b, tolerance = 1e-9) {
+
+  return Math.abs(a - b) <= tolerance;
+
+}
+
+
+function frequency(arr) {
+
+  const map = new Map();
+
+  arr.forEach(x => {
+
+    map.set(
+      x,
+      (map.get(x) || 0) + 1
+    );
+
+  });
+
+  return [...map.entries()]
+    .sort((a, b) => b[1] - a[1]);
+}
+
+
+function detectArithmetic(a) {
+
+  if (a.length < 3) return null;
+
+  const difference = a[1] - a[0];
+
+  const valid = a.every((x, i) => {
+
+    if (i < 2) return true;
+
+    return approx(
+      x - a[i - 1],
+      difference
+    );
+
+  });
+
+  return valid ? difference : null;
+}
+
+
+function detectGeometric(a) {
+
+  if (a.length < 3) return null;
+
+  if (a[0] === 0) return null;
+
+  const ratio = a[1] / a[0];
+
+  if (!Number.isFinite(ratio)) return null;
+
+  const valid = a.every((x, i) => {
+
+    if (i < 2) return true;
+
+    if (a[i - 1] === 0) return false;
+
+    return approx(
+      x / a[i - 1],
+      ratio
+    );
+
+  });
+
+  return valid ? ratio : null;
+}
+
+
+function smallestRepeatingPeriod(a) {
+
+  for (
+    let period = 1;
+    period <= Math.floor(a.length / 2);
+    period++
+  ) {
+
+    let valid = true;
+
+    for (
+      let i = period;
+      i < a.length;
+      i++
+    ) {
+
+      if (!approx(a[i], a[i % period])) {
+
+        valid = false;
+        break;
+
+      }
+
     }
-  </script>
+
+    if (valid) return period;
+
+  }
+
+  return null;
+}
+
+
+function longestRun(a) {
+
+  let best = {
+    value: a[0],
+    length: 1
+  };
+
+  let current = {
+    value: a[0],
+    length: 1
+  };
+
+  for (let i = 1; i < a.length; i++) {
+
+    if (approx(a[i], a[i - 1])) {
+
+      current.length++;
+
+    } else {
+
+      current = {
+        value: a[i],
+        length: 1
+      };
+
+    }
+
+    if (current.length > best.length) {
+
+      best = {
+        ...current
+      };
+
+    }
+
+  }
+
+  return best;
+}
+
+
+function percentile(a, p) {
+
+  const position = (a.length - 1) * p;
+
+  const base = Math.floor(position);
+
+  const remainder = position - base;
+
+  return a[base] +
+    (
+      a[base + 1] !== undefined
+        ? remainder * (a[base + 1] - a[base])
+        : 0
+    );
+}
+
+
+function detectOutliers(a) {
+
+  if (a.length < 5) return [];
+
+  const sorted = [...a].sort(
+    (x, y) => x - y
+  );
+
+  const q1 = percentile(sorted, 0.25);
+  const q3 = percentile(sorted, 0.75);
+
+  const iqr = q3 - q1;
+
+  const low = q1 - 1.5 * iqr;
+  const high = q3 + 1.5 * iqr;
+
+  return a.filter(
+    x => x < low || x > high
+  );
+}
+
+
+function addFinding(text, warning = false) {
+
+  const div = document.createElement("div");
+
+  div.className =
+    "result" +
+    (warning ? " warning" : "");
+
+  div.textContent = text;
+
+  document
+    .getElementById("findings")
+    .appendChild(div);
+}
+
+
+function analyze() {
+
+  const data = getNumbers();
+
+  const results =
+    document.getElementById("results");
+
+  const findings =
+    document.getElementById("findings");
+
+  if (data.length < 2) {
+
+    alert(
+      "Please enter at least 2 numbers."
+    );
+
+    return;
+  }
+
+  results.style.display = "block";
+
+  findings.innerHTML = "";
+
+  document.getElementById("count")
+    .textContent = data.length;
+
+  document.getElementById("unique")
+    .textContent = new Set(data).size;
+
+
+  const freq = frequency(data);
+
+  document.getElementById("common")
+    .textContent =
+      `${freq[0][0]} (${freq[0][1]}×)`;
+
+
+  const average =
+    data.reduce(
+      (sum, x) => sum + x,
+      0
+    ) / data.length;
+
+  document.getElementById("average")
+    .textContent =
+      average.toFixed(4);
+
+
+  document.getElementById("minimum")
+    .textContent =
+      Math.min(...data);
+
+
+  document.getElementById("maximum")
+    .textContent =
+      Math.max(...data);
+
+
+  addFinding(
+    `Sequence preview: ${data
+      .slice(0, 20)
+      .join(", ")}${data.length > 20 ? " …" : ""}`
+  );
+
+
+  const arithmetic =
+    detectArithmetic(data);
+
+  if (arithmetic !== null) {
+
+    const next =
+      data[data.length - 1] +
+      arithmetic;
+
+    addFinding(
+      `Arithmetic sequence detected. ` +
+      `Constant difference: ${arithmetic}. ` +
+      `Next-value estimate: ${next}.`
+    );
+
+  } else {
+
+    addFinding(
+      "No simple arithmetic sequence detected."
+    );
+
+  }
+
+
+  const geometric =
+    detectGeometric(data);
+
+  if (geometric !== null) {
+
+    const next =
+      data[data.length - 1] *
+      geometric;
+
+    addFinding(
+      `Geometric sequence detected. ` +
+      `Constant ratio: ${geometric}. ` +
+      `Next-value estimate: ${next}.`
+    );
+
+  }
+
+
+  const period =
+    smallestRepeatingPeriod(data);
+
+  if (period) {
+
+    addFinding(
+      `Repeating cycle detected with ` +
+      `a period of ${period}: ` +
+      `${data.slice(0, period).join(", ")}.`
+    );
+
+  } else {
+
+    addFinding(
+      "No exact repeating cycle was found."
+    );
+
+  }
+
+
+  const run =
+    longestRun(data);
+
+  if (run.length >= 2) {
+
+    addFinding(
+      `Longest consecutive repeat: ` +
+      `${run.value} appears ` +
+      `${run.length} times in a row.`
+    );
+
+  }
+
+
+  const changes =
+    data.slice(1)
+      .map((x, i) => x - data[i]);
+
+
+  if (changes.length) {
+
+    const averageChange =
+      changes.reduce(
+        (sum, x) => sum + x,
+        0
+      ) / changes.length;
+
+    addFinding(
+      `Average change between consecutive ` +
+      `values: ${averageChange.toFixed(4)}.`
+    );
+
+  }
+
+
+  const outliers =
+    detectOutliers(data);
+
+  if (outliers.length) {
+
+    addFinding(
+      `Potential statistical outliers: ` +
+      `${outliers.join(", ")}.`,
+      true
+    );
+
+  } else {
+
+    addFinding(
+      "No strong statistical outliers detected."
+    );
+
+  }
+
+
+  addFinding(
+    "Pattern detection identifies mathematical " +
+    "properties in the supplied data. " +
+    "It does not guarantee future events.",
+    true
+  );
+
+}
+
+
+function requestAIAnalysis() {
+
+  const data = getNumbers();
+
+  if (data.length < 2) {
+
+    alert(
+      "Enter data before requesting AI analysis."
+    );
+
+    return;
+  }
+
+
+  const status =
+    document.getElementById("status");
+
+  status.style.display = "block";
+
+  status.textContent =
+    "AI connection is not connected yet. " +
+    "The secure AI backend will be added next.";
+
+}
+
+
+function clearAll() {
+
+  document.getElementById("data")
+    .value = "";
+
+  document.getElementById("results")
+    .style.display = "none";
+
+  document.getElementById("status")
+    .style.display = "none";
+
+  video.pause();
+
+  video.removeAttribute("src");
+
+  video.load();
+
+  video.style.display = "none";
+
+  videoInput.value = "";
+
+}
+
+</script>
 
 </body>
 </html>
