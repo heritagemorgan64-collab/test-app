@@ -9,7 +9,8 @@
 <!-- Excel/CSV reader -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<style>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <style>
 * {
     box-sizing: border-box;
 }
@@ -400,7 +401,13 @@ id="videoPreview"
 controls
 style="width:100%;margin-top:15px;border-radius:12px;display:none;">
 </video>
+ <button onclick="scanFastScroll()" style="margin-top:15px;">
+    🔎 Scan Fast Scroll
+    </button>
 
+    <p id="ocrStatus" style="margin-top:10px;">
+    Ready to scan.
+</p>
 </div>
 
 
@@ -1280,5 +1287,117 @@ window.analyzeData = function() {
 };
     </script>
 
+<script>
+let ocrWorker = null;
+
+async function scanFastScroll() {
+    const video = document.getElementById("videoPreview");
+    const status = document.getElementById("ocrStatus");
+
+    if (!video || !video.src || !Number.isFinite(video.duration)) {
+        status.textContent = "Please upload a screen recording first.";
+        return;
+    }
+
+    status.textContent = "Starting fast OCR scanner...";
+
+    try {
+        if (!ocrWorker) {
+            ocrWorker = await Tesseract.createWorker("eng");
+
+            await ocrWorker.setParameters({
+                tessedit_char_whitelist: "0123456789.-,"
+            });
+        }
+
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        const scale = 2;
+
+        canvas.width = video.videoWidth * scale;
+        canvas.height = video.videoHeight * scale;
+
+        const detected = [];
+
+        video.pause();
+
+        const duration = video.duration;
+        const interval = 0.20;
+
+        let previousFrameNumbers = [];
+
+        for (let time = 0; time < duration; time += interval) {
+
+            video.currentTime = Math.min(time, duration - 0.01);
+
+            await new Promise(resolve => {
+                video.onseeked = resolve;
+            });
+
+            ctx.drawImage(
+                video,
+                0,
+                0,
+                canvas.width,
+                canvas.height
+            );
+
+            const result = await ocrWorker.recognize(canvas);
+
+            const text = result.data.text || "";
+
+            const frameNumbers =
+                text.match(/-?\d+(?:\.\d+)?/g) || [];
+
+            const numbers = frameNumbers
+                .map(Number)
+                .filter(Number.isFinite);
+
+            /*
+             * Only add numbers that are new compared
+             * with the immediately previous frame.
+             * This prevents one number staying on screen
+             * for several frames from being added repeatedly.
+             */
+            const newNumbers = [];
+
+            numbers.forEach(number => {
+                if (!previousFrameNumbers.includes(number)) {
+                    newNumbers.push(number);
+                }
+            });
+
+            detected.push(...newNumbers);
+
+            previousFrameNumbers = numbers;
+
+            const progress =
+                Math.min(100, Math.round((time / duration) * 100));
+
+            status.textContent =
+                "Scanning fast scroll... " + progress + "%";
+        }
+
+        document.getElementById("dataInput").value =
+            detected.join(", ");
+
+        status.textContent =
+            "Scan complete. " +
+            detected.length +
+            " numbers detected.";
+
+        if (detected.length > 0) {
+            analyzeData();
+        }
+
+    } catch (error) {
+        console.error(error);
+
+        status.textContent =
+            "OCR scanning failed. Please try another recording.";
+    }
+}
+</script>
 </body>
   </html>
