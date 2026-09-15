@@ -1293,46 +1293,59 @@ let ocrWorker = null;
 async function scanFastScroll() {
     const video = document.getElementById("videoPreview");
     const status = document.getElementById("ocrStatus");
+    const resultsBox = document.getElementById("betSlipResults");
 
-    if (!video || !video.src || !Number.isFinite(video.duration)) {
+    if (!video || !video.src) {
         status.textContent = "Please upload a screen recording first.";
         return;
     }
 
-    status.textContent = "Starting fast OCR scanner...";
+    if (typeof Tesseract === "undefined") {
+        status.textContent = "OCR engine is not loaded. Check your internet connection.";
+        return;
+    }
 
     try {
+        status.textContent = "Starting OCR scanner...";
+
         if (!ocrWorker) {
             ocrWorker = await Tesseract.createWorker("eng");
 
             await ocrWorker.setParameters({
-                tessedit_char_whitelist: "0123456789.-,"
+                tessedit_char_whitelist:
+                    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:.-/"
             });
         }
 
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
 
-        const scale = 2;
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
 
-        canvas.width = video.videoWidth * scale;
-        canvas.height = video.videoHeight * scale;
+        const detectedMatches = [];
+        const seenMatches = new Set();
 
-        const detected = [];
+        const duration = video.duration || 0;
 
-        video.pause();
+        if (!duration) {
+            status.textContent = "The recording could not be read.";
+            return;
+        }
 
-        const duration = video.duration;
-        const interval = 0.20;
+        const step = 0.35;
 
-        let previousFrameNumbers = [];
+        for (let time = 0; time < duration; time += step) {
 
-        for (let time = 0; time < duration; time += interval) {
-
-            video.currentTime = Math.min(time, duration - 0.01);
+            video.currentTime = time;
 
             await new Promise(resolve => {
-                video.onseeked = resolve;
+                const done = () => {
+                    video.removeEventListener("seeked", done);
+                    resolve();
+                };
+
+                video.addEventListener("seeked", done);
             });
 
             ctx.drawImage(
@@ -1344,60 +1357,127 @@ async function scanFastScroll() {
             );
 
             const result = await ocrWorker.recognize(canvas);
-
             const text = result.data.text || "";
 
-            const frameNumbers =
-                text.match(/-?\d+(?:\.\d+)?/g) || [];
+            const cleanText = text
+                .replace(/\n+/g, "\n")
+                .replace(/[|]/g, "I");
 
-            const numbers = frameNumbers
-                .map(Number)
-                .filter(Number.isFinite);
+            const lines = cleanText
+                .split("\n")
+                .map(line => line.trim())
+                .filter(Boolean);
 
-            /*
-             * Only add numbers that are new compared
-             * with the immediately previous frame.
-             * This prevents one number staying on screen
-             * for several frames from being added repeatedly.
-             */
-            const newNumbers = [];
+            let team = "";
+            let score = "";
 
-            numbers.forEach(number => {
-                if (!previousFrameNumbers.includes(number)) {
-                    newNumbers.push(number);
+            for (const line of lines) {
+
+                const teamMatch = line.match(
+    /^(.{2,40}?)\s+(?:vs\.?|v)\s+(.{2,40})$/i
+);
+
+if (teamMatch) {
+    const homeTeam = teamMatch[1].trim();
+    const awayTeam = teamMatch[2].trim();
+
+    team = homeTeam + " vs " + awayTeam;
                 }
-            });
 
-            detected.push(...newNumbers);
+                const scoreMatch = line.match(
+                    /\b(\d{1,2})\s*[:\-]\s*(\d{1,2})\b/
+                );
 
-            previousFrameNumbers = numbers;
+                if (scoreMatch) {
+                    score =
+                        scoreMatch[1] +
+                        ":" +
+                        scoreMatch[2];
+                }
+            }
 
-            const progress =
-                Math.min(100, Math.round((time / duration) * 100));
+            if (team && score) {
+
+                const key = team + "|" + score;
+
+                if (!seenMatches.has(key)) {
+                    seenMatches.add(key);
+
+                    detectedMatches.push({
+                        team: team,
+                        score: score,
+                        time: time
+                    });
+                }
+            }
 
             status.textContent =
-                "Scanning fast scroll... " + progress + "%";
+                "Scanning fast scroll... " +
+                Math.round((time / duration) * 100) +
+                "%";
         }
 
+        resultsBox.innerHTML = "";
+
+        if (detectedMatches.length === 0) {
+
+            resultsBox.innerHTML =
+                "<p>No team scores were detected. Try a clearer recording.</p>";
+
+            status.textContent =
+                "Scan complete. No team scores detected.";
+
+            return;
+        }
+
+        const numbers = [];
+
+        detectedMatches.forEach(match => {
+
+            const parts = match.score.split(":");
+
+            const homeScore = Number(parts[0]);
+            const awayScore = Number(parts[1]);
+
+            numbers.push(homeScore);
+            numbers.push(awayScore);
+
+            const item = document.createElement("div");
+
+            item.style.padding = "12px";
+            item.style.marginTop = "8px";
+            item.style.borderRadius = "8px";
+            item.style.background = "rgba(255,255,255,0.08)";
+
+            item.innerHTML =
+                "<strong>" +
+                match.team +
+                "</strong><br>" +
+                "FT Score: " +
+                match.score;
+
+            resultsBox.appendChild(item);
+        });
+
         document.getElementById("dataInput").value =
-            detected.join(", ");
+            numbers.join(", ");
 
         status.textContent =
             "Scan complete. " +
-            detected.length +
-            " numbers detected.";
+            detectedMatches.length +
+            " matches detected.";
 
-        if (detected.length > 0) {
-            analyzeData();
-        }
+        analyzeData();
 
     } catch (error) {
+
         console.error(error);
 
         status.textContent =
-            "OCR scanning failed. Please try another recording.";
+            "OCR scanning failed. Please try again with a clearer recording.";
     }
 }
-</script>
+    </script>
+    
 </body>
   </html>
