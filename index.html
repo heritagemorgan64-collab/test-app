@@ -6,12 +6,11 @@
 ‎
 ‎<title>Sequence AI Analyzer</title>
 ‎
-‎<!-- Libraries -->
+‎<!-- Excel/CSV reader -->
 ‎<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-‎<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+‎<script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 ‎<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-‎
-‎<style>
+‎    <style>
 ‎* {
 ‎    box-sizing: border-box;
 ‎}
@@ -25,7 +24,7 @@
 ‎
 ‎.container {
 ‎    width: 95%;
-‎    max-width: 1000px;
+‎    max-width: 900px;
 ‎    margin: auto;
 ‎    padding: 20px 0 50px;
 ‎}
@@ -63,11 +62,6 @@
 ‎    background: #0f172a;
 ‎    color: white;
 ‎    font-size: 16px;
-‎    outline: none;
-‎}
-‎
-‎textarea:focus {
-‎    border-color: #38bdf8;
 ‎}
 ‎
 ‎input[type="file"] {
@@ -90,15 +84,6 @@
 ‎    cursor: pointer;
 ‎}
 ‎
-‎button:hover {
-‎    opacity: 0.88;
-‎}
-‎
-‎button:disabled {
-‎    opacity: 0.5;
-‎    cursor: not-allowed;
-‎}
-‎
 ‎.analyze {
 ‎    background: #22c55e;
 ‎    color: white;
@@ -119,9 +104,8 @@
 ‎    color: white;
 ‎}
 ‎
-‎.scan {
-‎    background: #0ea5e9;
-‎    color: white;
+‎button:hover {
+‎    opacity: 0.88;
 ‎}
 ‎
 ‎.status {
@@ -158,7 +142,6 @@
 ‎    border-radius: 12px;
 ‎    padding: 15px;
 ‎    margin-top: 12px;
-‎    line-height: 1.6;
 ‎}
 ‎
 ‎.result strong {
@@ -177,89 +160,11 @@
 ‎    color: #f87171;
 ‎}
 ‎
-‎.chart-container {
-‎    position: relative;
-‎    width: 100%;
-‎    height: 350px;
-‎}
-‎
-‎.table-wrapper {
-‎    overflow-x: auto;
-‎    margin-top: 12px;
-‎}
-‎
-‎table {
-‎    width: 100%;
-‎    border-collapse: collapse;
-‎    min-width: 500px;
-‎}
-‎
-‎th,
-‎td {
-‎    padding: 12px;
-‎    border-bottom: 1px solid #334155;
-‎    text-align: left;
-‎}
-‎
-‎th {
-‎    color: #38bdf8;
-‎    background: #0f172a;
-‎}
-‎
-‎td {
-‎    color: #e2e8f0;
-‎}
-‎
-‎.match-score {
-‎    font-weight: bold;
-‎    font-size: 18px;
-‎}
-‎
-‎.progress-container {
-‎    width: 100%;
-‎    background: #0f172a;
-‎    border-radius: 20px;
-‎    overflow: hidden;
-‎    margin-top: 12px;
-‎    display: none;
-‎}
-‎
-‎.progress-bar {
-‎    width: 0%;
-‎    height: 12px;
-‎    background: #22c55e;
-‎    transition: width 0.2s;
-‎}
-‎
 ‎footer {
 ‎    text-align: center;
 ‎    color: #64748b;
 ‎    margin-top: 30px;
 ‎    font-size: 13px;
-‎}
-‎
-‎.small {
-‎    font-size: 13px;
-‎    color: #94a3b8;
-‎}
-‎
-‎@media (max-width: 600px) {
-‎    .container {
-‎        width: 92%;
-‎    }
-‎
-‎    .card {
-‎        padding: 16px;
-‎    }
-‎
-‎    button {
-‎        width: 100%;
-‎        margin: 5px 0;
-‎    }
-‎
-‎    .chart-container {
-‎        height: 280px;
-‎    }
 ‎}
 ‎</style>
 ‎</head>
@@ -274,8 +179,6 @@
 ‎Analyze numerical data, detect patterns and explore statistical behavior.
 ‎</div>
 ‎
-‎
-‎<!-- DATA INPUT -->
 ‎<div class="card">
 ‎
 ‎<h2>📊 Enter Your Data</h2>
@@ -284,8 +187,7 @@
 ‎Enter numbers separated by commas, spaces, semicolons or new lines.
 ‎</p>
 ‎
-‎<textarea
-‎id="dataInput"
+‎<textarea id="dataInput"
 ‎placeholder="Example:
 ‎1, 2, 3, 4, 5, 6, 7"></textarea>
 ‎
@@ -299,20 +201,15 @@
 ‎Clear
 ‎</button>
 ‎
-‎<button class="secondary" onclick="loadDemoData()">
-‎Load Demo
-‎</button>
-‎
 ‎</div>
 ‎
 ‎
-‎<!-- FILE UPLOAD -->
 ‎<div class="card">
 ‎
 ‎<h2>📁 Upload CSV or Excel</h2>
 ‎
 ‎<p>
-‎Upload a CSV, XLS or XLSX file. Numerical values will be extracted automatically.
+‎Upload a CSV, XLS or XLSX file. The analyzer will extract the numerical values automatically.
 ‎</p>
 ‎
 ‎<input
@@ -329,7 +226,6 @@
 ‎</div>
 ‎
 ‎
-‎<!-- BASIC STATISTICS -->
 ‎<div class="card">
 ‎
 ‎<h2>📈 Basic Statistics</h2>
@@ -367,12 +263,23 @@
 ‎</div>
 ‎
 ‎</div>
+‎
 ‎</div>
 ‎
 ‎
-‎<!-- ADVANCED STATISTICS -->
 ‎<div class="card">
 ‎
+‎<h2>📉 Sequence Chart</h2>
+‎
+‎<p>
+‎Visual representation of your numerical sequence.
+‎</p>
+‎
+‎<div style="position:relative;width:100%;height:350px;">
+‎    <canvas id="sequenceChart"></canvas>
+‎</div>
+‎
+‎<div class="card">
 ‎<h2>📊 Advanced Statistics</h2>
 ‎
 ‎<div class="grid">
@@ -414,73 +321,53 @@
 ‎
 ‎</div>
 ‎</div>
-‎
-‎
-‎<!-- CHART -->
-‎<div class="card">
-‎
-‎<h2>📉 Sequence Chart</h2>
-‎
-‎<p>
-‎Visual representation of your numerical sequence.
-‎</p>
-‎
-‎<div class="chart-container">
-‎<canvas id="sequenceChart"></canvas>
-‎</div>
-‎
-‎</div>
-‎
-‎
-‎<!-- PATTERN DETECTION -->
-‎<div class="card">
+‎</div><div class="card">
 ‎
 ‎<h2>🔍 Pattern Detection</h2>
 ‎
-‎<div class="result">
+‎<div id="patternResults">
 ‎
-‎<p>
+‎<div class="result">
 ‎<strong>Arithmetic Sequence:</strong>
 ‎<span id="arithmetic">-</span>
-‎</p>
+‎</div>
 ‎
-‎<p>
+‎<div class="result">
 ‎<strong>Geometric Sequence:</strong>
 ‎<span id="geometric">-</span>
-‎</p>
+‎</div>
 ‎
-‎<p>
+‎<div class="result">
 ‎<strong>Repeating Period:</strong>
 ‎<span id="period">-</span>
-‎</p>
+‎</div>
 ‎
-‎<p>
+‎<div class="result">
 ‎<strong>Longest Run:</strong>
 ‎<span id="longestRun">-</span>
-‎</p>
+‎</div>
 ‎
-‎<p>
+‎<div class="result">
 ‎<strong>Average Change:</strong>
 ‎<span id="averageChange">-</span>
-‎</p>
+‎</div>
 ‎
-‎<p>
+‎<div class="result">
 ‎<strong>IQR Outliers:</strong>
 ‎<span id="outliers">-</span>
-‎</p>
-‎
 ‎</div>
 ‎
 ‎</div>
 ‎
+‎</div>
 ‎
-‎<!-- DEEP ANALYSIS -->
+‎
 ‎<div class="card">
 ‎
-‎<h2>🤖 Deep Analysis</h2>
+‎<h2>🤖 Deep AI Analysis</h2>
 ‎
 ‎<p>
-‎Generate a deeper statistical interpretation of the current dataset.
+‎Use this section for deeper interpretation of your dataset.
 ‎</p>
 ‎
 ‎<button class="ai" onclick="deepAnalysis()">
@@ -488,19 +375,18 @@
 ‎</button>
 ‎
 ‎<div id="aiResult" class="result">
-‎Analysis has not been run yet.
+‎AI analysis has not been run yet.
 ‎</div>
 ‎
 ‎</div>
 ‎
 ‎
-‎<!-- VIDEO -->
 ‎<div class="card">
 ‎
-‎<h2>🎥 Screen Recording Scanner</h2>
+‎<h2>🎥 Screen Recording</h2>
 ‎
 ‎<p>
-‎Upload a screen recording containing match scores. The scanner will examine frames and attempt to identify team names and scores.
+‎You can upload a screen recording for viewing. Automatic number extraction from video will be added later.
 ‎</p>
 ‎
 ‎<input
@@ -515,45 +401,18 @@
 ‎controls
 ‎style="width:100%;margin-top:15px;border-radius:12px;display:none;">
 ‎</video>
+‎<button onclick="scanFastScroll()" style="margin-top:15px;">
+‎    🔎 Scan Fast Scroll
+‎    </button>
 ‎
-‎<br>
-‎
-‎<button
-‎class="scan"
-‎id="scanButton"
-‎onclick="scanFastScroll()">
-‎🔎 Scan Fast Scroll
-‎</button>
-‎
-‎<div class="progress-container" id="progressContainer">
-‎<div class="progress-bar" id="progressBar"></div>
-‎</div>
-‎
-‎<p id="ocrStatus" class="status">
-‎Ready to scan.
+‎    <p id="ocrStatus" style="margin-top:10px;">
+‎    Ready to scan.
 ‎</p>
-‎
-‎</div>
-‎
-‎
-‎<!-- DETECTED MATCHES -->
-‎<div class="card">
-‎
-‎<h2>⚽ Detected Matches</h2>
-‎
-‎<div id="betSlipResults" class="result">
-‎
-‎No matches detected yet.
-‎
-‎</div>
-‎
 ‎</div>
 ‎
 ‎
 ‎<footer>
-‎
-‎Sequence AI Analyzer • Statistical analysis does not guarantee future events.
-‎
+‎Sequence AI Analyzer • Pattern analysis is statistical and does not guarantee future events.
 ‎</footer>
 ‎
 ‎</div>
@@ -561,34 +420,24 @@
 ‎
 ‎<script>
 ‎
-‎/* =========================================================
-‎   GLOBAL VARIABLES
-‎========================================================= */
-‎
-‎let sequenceChart = null;
-‎let ocrWorker = null;
-‎
-‎
-‎/* =========================================================
+‎/* =========================
 ‎   GET NUMBERS
-‎========================================================= */
+‎========================= */
 ‎
 ‎function getNumbers() {
 ‎
-‎    const text =
-‎        document.getElementById("dataInput").value;
+‎    const text = document.getElementById("dataInput").value;
 ‎
 ‎    return text
 ‎        .split(/[,\s;]+/)
 ‎        .map(Number)
 ‎        .filter(n => Number.isFinite(n));
-‎
 ‎}
 ‎
 ‎
-‎/* =========================================================
+‎/* =========================
 ‎   FORMAT NUMBER
-‎========================================================= */
+‎========================= */
 ‎
 ‎function formatNumber(number) {
 ‎
@@ -598,17 +447,74 @@
 ‎
 ‎    return Number.isInteger(number)
 ‎        ? number.toString()
-‎        : number
-‎            .toFixed(4)
-‎            .replace(/0+$/, "")
-‎            .replace(/\.$/, "");
-‎
+‎        : number.toFixed(4).replace(/0+$/, "").replace(/\.$/, "");
 ‎}
+‎    function updateAdvancedStatistics(numbers) {
+‎    if (!numbers.length) return;
+‎
+‎    const sorted = [...numbers].sort((a, b) => a - b);
+‎
+‎    const middle = Math.floor(sorted.length / 2);
+‎
+‎    const median = sorted.length % 2
+‎        ? sorted[middle]
+‎        : (sorted[middle - 1] + sorted[middle]) / 2;
+‎
+‎    const frequency = {};
+‎
+‎    numbers.forEach(n => {
+‎        frequency[n] = (frequency[n] || 0) + 1;
+‎    });
+‎
+‎    const maxFrequency = Math.max(...Object.values(frequency));
+‎
+‎    const modes = Object.keys(frequency)
+‎        .filter(n => frequency[n] === maxFrequency)
+‎        .map(Number);
+‎
+‎    const range = Math.max(...numbers) - Math.min(...numbers);
+‎
+‎    const average =
+‎        numbers.reduce((a, b) => a + b, 0) / numbers.length;
+‎
+‎    const variance =
+‎        numbers.reduce(
+‎            (sum, n) => sum + Math.pow(n - average, 2),
+‎            0
+‎        ) / numbers.length;
+‎
+‎    const standardDeviation = Math.sqrt(variance);
+‎
+‎    document.getElementById("median").textContent =
+‎        formatNumber(median);
+‎
+‎    document.getElementById("mode").textContent =
+‎        maxFrequency > 1
+‎            ? modes.map(formatNumber).join(", ")
+‎            : "No mode";
+‎
+‎    document.getElementById("range").textContent =
+‎        formatNumber(range);
+‎
+‎    document.getElementById("standardDeviation").textContent =
+‎        formatNumber(standardDeviation);
+‎        document.getElementById("variance").textContent =
+‎    formatNumber(variance);
+‎
+‎const q1 = sorted[Math.floor((sorted.length - 1) * 0.25)];
+‎const q3 = sorted[Math.floor((sorted.length - 1) * 0.75)];
+‎
+‎document.getElementById("q1").textContent =
+‎    formatNumber(q1);
+‎
+‎document.getElementById("q3").textContent =
+‎    formatNumber(q3);
+‎    }
 ‎
 ‎
-‎/* =========================================================
+‎/* =========================
 ‎   ANALYZE DATA
-‎========================================================= */
+‎========================= */
 ‎
 ‎function analyzeData() {
 ‎
@@ -621,34 +527,26 @@
 ‎        return;
 ‎    }
 ‎
-‎    const sorted =
-‎        [...numbers].sort((a, b) => a - b);
+‎    const sorted = [...numbers].sort((a,b) => a-b);
 ‎
-‎    const unique =
-‎        [...new Set(numbers)];
+‎    const unique = [...new Set(numbers)];
 ‎
-‎    const min =
-‎        Math.min(...numbers);
+‎    const min = Math.min(...numbers);
 ‎
-‎    const max =
-‎        Math.max(...numbers);
+‎    const max = Math.max(...numbers);
 ‎
 ‎    const average =
-‎        numbers.reduce((a, b) => a + b, 0)
-‎        / numbers.length;
+‎        numbers.reduce((a,b) => a+b, 0) / numbers.length;
 ‎
-‎
-‎    /* FREQUENCY */
+‎    /* Frequency */
 ‎
 ‎    const frequency = {};
 ‎
 ‎    numbers.forEach(n => {
 ‎
-‎        frequency[n] =
-‎            (frequency[n] || 0) + 1;
+‎        frequency[n] = (frequency[n] || 0) + 1;
 ‎
 ‎    });
-‎
 ‎
 ‎    let mostCommon = numbers[0];
 ‎
@@ -658,15 +556,11 @@
 ‎            frequency[n] >
 ‎            frequency[mostCommon]
 ‎        ) {
-‎
 ‎            mostCommon = Number(n);
-‎
 ‎        }
 ‎
 ‎    });
 ‎
-‎
-‎    /* BASIC STATISTICS */
 ‎
 ‎    document.getElementById("dataPoints").textContent =
 ‎        numbers.length;
@@ -687,140 +581,66 @@
 ‎        formatNumber(Number(mostCommon));
 ‎
 ‎
-‎    /* ADVANCED */
+‎    /* Arithmetic */
 ‎
-‎    updateAdvancedStatistics(numbers);
-‎
-‎
-‎    /* PATTERNS */
+‎    const arithmetic = detectArithmetic(numbers);
 ‎
 ‎    document.getElementById("arithmetic").textContent =
-‎        detectArithmetic(numbers);
+‎        arithmetic;
+‎
+‎
+‎    /* Geometric */
+‎
+‎    const geometric = detectGeometric(numbers);
 ‎
 ‎    document.getElementById("geometric").textContent =
-‎        detectGeometric(numbers);
+‎        geometric;
+‎
+‎
+‎    /* Repeating */
+‎
+‎    const period = detectPeriod(numbers);
 ‎
 ‎    document.getElementById("period").textContent =
-‎        detectPeriod(numbers);
+‎        period;
+‎
+‎
+‎    /* Longest run */
+‎
+‎    const run = longestRun(numbers);
 ‎
 ‎    document.getElementById("longestRun").textContent =
-‎        longestRun(numbers);
+‎        run;
+‎
+‎
+‎    /* Average change */
+‎
+‎    const change = averageChange(numbers);
 ‎
 ‎    document.getElementById("averageChange").textContent =
-‎        formatNumber(averageChange(numbers));
+‎        formatNumber(change);
 ‎
-‎    const outliers =
-‎        detectOutliers(sorted);
+‎
+‎    /* Outliers */
+‎
+‎    const outliers = detectOutliers(sorted);
 ‎
 ‎    document.getElementById("outliers").textContent =
 ‎        outliers.length
 ‎            ? outliers.map(formatNumber).join(", ")
 ‎            : "None detected";
-‎
-‎
-‎    /* CHART */
-‎
-‎    drawSequenceChart(numbers);
-‎
+‎    updateAdvancedStatistics(numbers);
 ‎}
 ‎
 ‎
-‎/* =========================================================
-‎   ADVANCED STATISTICS
-‎========================================================= */
-‎
-‎function updateAdvancedStatistics(numbers) {
-‎
-‎    if (!numbers.length) return;
-‎
-‎    const sorted =
-‎        [...numbers].sort((a, b) => a - b);
-‎
-‎    const median =
-‎        percentile(sorted, 50);
-‎
-‎    const q1 =
-‎        percentile(sorted, 25);
-‎
-‎    const q3 =
-‎        percentile(sorted, 75);
-‎
-‎
-‎    const frequency = {};
-‎
-‎    numbers.forEach(n => {
-‎
-‎        frequency[n] =
-‎            (frequency[n] || 0) + 1;
-‎
-‎    });
-‎
-‎
-‎    const maxFrequency =
-‎        Math.max(...Object.values(frequency));
-‎
-‎
-‎    const modes =
-‎        Object.keys(frequency)
-‎            .filter(n => frequency[n] === maxFrequency)
-‎            .map(Number);
-‎
-‎
-‎    const range =
-‎        Math.max(...numbers) -
-‎        Math.min(...numbers);
-‎
-‎
-‎    const average =
-‎        numbers.reduce((a, b) => a + b, 0)
-‎        / numbers.length;
-‎
-‎
-‎    const variance =
-‎        numbers.reduce(
-‎            (sum, n) =>
-‎                sum + Math.pow(n - average, 2),
-‎            0
-‎        ) / numbers.length;
-‎
-‎
-‎    const standardDeviation =
-‎        Math.sqrt(variance);
-‎
-‎
-‎    document.getElementById("median").textContent =
-‎        formatNumber(median);
-‎
-‎    document.getElementById("mode").textContent =
-‎        maxFrequency > 1
-‎            ? modes.map(formatNumber).join(", ")
-‎            : "No mode";
-‎
-‎    document.getElementById("range").textContent =
-‎        formatNumber(range);
-‎
-‎    document.getElementById("standardDeviation").textContent =
-‎        formatNumber(standardDeviation);
-‎
-‎    document.getElementById("variance").textContent =
-‎        formatNumber(variance);
-‎
-‎    document.getElementById("q1").textContent =
-‎        formatNumber(q1);
-‎
-‎    document.getElementById("q3").textContent =
-‎        formatNumber(q3);
-‎
-‎}
-‎
-‎
-‎/* =========================================================
-‎   ARITHMETIC SEQUENCE
-‎========================================================= */
+‎/* =========================
+‎   ARITHMETIC
+‎========================= */
 ‎
 ‎function detectArithmetic(numbers) {
 ‎
 ‎    if (numbers.length < 3) {
+‎
 ‎        return "Not enough data";
 ‎    }
 ‎
@@ -831,8 +651,8 @@
 ‎
 ‎        if (
 ‎            Math.abs(
-‎                (numbers[i] - numbers[i - 1])
-‎                - difference
+‎                (numbers[i] - numbers[i-1]) -
+‎                difference
 ‎            ) > 0.000001
 ‎        ) {
 ‎
@@ -844,21 +664,22 @@
 ‎
 ‎    return "Yes • Difference = " +
 ‎        formatNumber(difference);
-‎
 ‎}
 ‎
 ‎
-‎/* =========================================================
-‎   GEOMETRIC SEQUENCE
-‎========================================================= */
+‎/* =========================
+‎   GEOMETRIC
+‎========================= */
 ‎
 ‎function detectGeometric(numbers) {
 ‎
 ‎    if (numbers.length < 3) {
+‎
 ‎        return "Not enough data";
 ‎    }
 ‎
 ‎    if (numbers[0] === 0) {
+‎
 ‎        return "Cannot determine";
 ‎    }
 ‎
@@ -867,13 +688,13 @@
 ‎
 ‎    for (let i = 2; i < numbers.length; i++) {
 ‎
-‎        if (numbers[i - 1] === 0) {
+‎        if (numbers[i-1] === 0) {
+‎
 ‎            return "Cannot determine";
 ‎        }
 ‎
 ‎        const currentRatio =
-‎            numbers[i] /
-‎            numbers[i - 1];
+‎            numbers[i] / numbers[i-1];
 ‎
 ‎        if (
 ‎            Math.abs(currentRatio - ratio)
@@ -888,13 +709,12 @@
 ‎
 ‎    return "Yes • Ratio = " +
 ‎        formatNumber(ratio);
-‎
 ‎}
 ‎
 ‎
-‎/* =========================================================
+‎/* =========================
 ‎   REPEATING PERIOD
-‎========================================================= */
+‎========================= */
 ‎
 ‎function detectPeriod(numbers) {
 ‎
@@ -915,10 +735,7 @@
 ‎            i++
 ‎        ) {
 ‎
-‎            if (
-‎                numbers[i] !==
-‎                numbers[i % period]
-‎            ) {
+‎            if (numbers[i] !== numbers[i % period]) {
 ‎
 ‎                valid = false;
 ‎                break;
@@ -936,28 +753,29 @@
 ‎    }
 ‎
 ‎    return "No clear repeating period";
-‎
 ‎}
 ‎
 ‎
-‎/* =========================================================
+‎/* =========================
 ‎   LONGEST RUN
-‎========================================================= */
+‎========================= */
 ‎
 ‎function longestRun(numbers) {
 ‎
 ‎    if (numbers.length === 0) {
+‎
 ‎        return "-";
 ‎    }
 ‎
 ‎    let longest = 1;
-‎    let current = 1;
-‎    let value = numbers[0];
 ‎
+‎    let current = 1;
+‎
+‎    let value = numbers[0];
 ‎
 ‎    for (let i = 1; i < numbers.length; i++) {
 ‎
-‎        if (numbers[i] === numbers[i - 1]) {
+‎        if (numbers[i] === numbers[i-1]) {
 ‎
 ‎            current++;
 ‎
@@ -966,7 +784,7 @@
 ‎            if (current > longest) {
 ‎
 ‎                longest = current;
-‎                value = numbers[i - 1];
+‎                value = numbers[i-1];
 ‎
 ‎            }
 ‎
@@ -976,64 +794,79 @@
 ‎
 ‎    }
 ‎
-‎
 ‎    if (current > longest) {
 ‎
 ‎        longest = current;
-‎        value = numbers[numbers.length - 1];
+‎        value = numbers[numbers.length-1];
 ‎
 ‎    }
-‎
 ‎
 ‎    return longest +
 ‎        " consecutive × " +
 ‎        formatNumber(value);
-‎
 ‎}
 ‎
 ‎
-‎/* =========================================================
+‎/* =========================
 ‎   AVERAGE CHANGE
-‎========================================================= */
+‎========================= */
 ‎
 ‎function averageChange(numbers) {
 ‎
 ‎    if (numbers.length < 2) {
+‎
 ‎        return 0;
 ‎    }
 ‎
 ‎    let total = 0;
 ‎
-‎    for (
-‎        let i = 1;
-‎        i < numbers.length;
-‎        i++
-‎    ) {
+‎    for (let i = 1; i < numbers.length; i++) {
 ‎
-‎        total +=
-‎            numbers[i] -
-‎            numbers[i - 1];
+‎        total += numbers[i] - numbers[i-1];
 ‎
 ‎    }
 ‎
-‎    return total /
-‎        (numbers.length - 1);
-‎
+‎    return total / (numbers.length - 1);
 ‎}
 ‎
 ‎
-‎/* =========================================================
-‎   PERCENTILE
-‎========================================================= */
+‎/* =========================
+‎   OUTLIERS
+‎========================= */
 ‎
-‎function percentile(sorted, percent) {
+‎function detectOutliers(sorted) {
 ‎
-‎    if (!sorted.length) {
-‎        return null;
+‎    if (sorted.length < 4) {
+‎
+‎        return [];
 ‎    }
 ‎
+‎    const q1 = percentile(sorted, 25);
+‎
+‎    const q3 = percentile(sorted, 75);
+‎
+‎    const iqr = q3 - q1;
+‎
+‎    const lower =
+‎        q1 - 1.5 * iqr;
+‎
+‎    const upper =
+‎        q3 + 1.5 * iqr;
+‎
+‎    return sorted.filter(
+‎        n => n < lower || n > upper
+‎    );
+‎}
+‎
+‎
+‎/* =========================
+‎   PERCENTILE
+‎========================= */
+‎
+‎function percentile(sorted, percentile) {
+‎
 ‎    const index =
-‎        (percent / 100) *
+‎        (percentile / 100) *
 ‎        (sorted.length - 1);
 ‎
 ‎    const lower =
@@ -1043,7 +876,9 @@
 ‎        Math.ceil(index);
 ‎
 ‎    if (lower === upper) {
+‎
 ‎        return sorted[lower];
+‎
 ‎    }
 ‎
 ‎    return (
@@ -1051,160 +886,22 @@
 ‎        (sorted[upper] - sorted[lower]) *
 ‎        (index - lower)
 ‎    );
-‎
 ‎}
 ‎
 ‎
-‎/* =========================================================
-‎   OUTLIERS
-‎========================================================= */
-‎
-‎function detectOutliers(sorted) {
-‎
-‎    if (sorted.length < 4) {
-‎        return [];
-‎    }
-‎
-‎    const q1 =
-‎        percentile(sorted, 25);
-‎
-‎    const q3 =
-‎        percentile(sorted, 75);
-‎
-‎    const iqr =
-‎        q3 - q1;
-‎
-‎    const lower =
-‎        q1 - 1.5 * iqr;
-‎
-‎    const upper =
-‎        q3 + 1.5 * iqr;
-‎
-‎    return sorted.filter(
-‎        n =>
-‎            n < lower ||
-‎            n > upper
-‎    );
-‎
-‎}
-‎
-‎
-‎/* =========================================================
-‎   CHART
-‎========================================================= */
-‎
-‎function drawSequenceChart(numbers) {
-‎
-‎    const canvas =
-‎        document.getElementById("sequenceChart");
-‎
-‎    if (!canvas) return;
-‎
-‎
-‎    if (sequenceChart) {
-‎
-‎        sequenceChart.destroy();
-‎
-‎    }
-‎
-‎
-‎    const labels =
-‎        numbers.map(
-‎            (_, index) => index + 1
-‎        );
-‎
-‎
-‎    sequenceChart =
-‎        new Chart(canvas, {
-‎
-‎            type: "line",
-‎
-‎            data: {
-‎
-‎                labels: labels,
-‎
-‎                datasets: [{
-‎
-‎                    label: "Sequence",
-‎
-‎                    data: numbers,
-‎
-‎                    borderWidth: 3,
-‎
-‎                 tension: 0.25,
-‎
-‎                    pointRadius: 4,
-‎
-‎                    fill: false
-‎
-‎                }]
-‎
-‎            },
-‎
-‎            options: {
-‎
-‎                responsive: true,
-‎
-‎                maintainAspectRatio: false,
-‎
-‎                plugins: {
-‎
-‎                    legend: {
-‎                        display: true
-‎                    },
-‎
-‎                    tooltip: {
-‎                        enabled: true
-‎                    }
-‎
-‎                },
-‎
-‎                scales: {
-‎
-‎                    x: {
-‎
-‎                        title: {
-‎
-‎                            display: true,
-‎
-‎                            text: "Data Point"
-‎
-‎                        }
-‎
-‎                    },
-‎
-‎                    y: {
-‎
-‎                        title: {
-‎
-‎                            display: true,
-‎
-‎                            text: "Value"
-‎
-‎                        }
-‎
-‎                    }
-‎
-‎                }
-‎
-‎            }
-‎
-‎        });
-‎
-‎}
-‎
-‎
-‎/* =========================================================
-‎   FILE UPLOAD
-‎========================================================= */
+‎/* =========================
+‎   CSV / EXCEL UPLOAD
+‎========================= */
 ‎
 ‎function handleFileUpload(event) {
 ‎
 ‎    const file =
 ‎        event.target.files[0];
 ‎
-‎    if (!file) return;
+‎    if (!file) {
 ‎
+‎        return;
+‎    }
 ‎
 ‎    const status =
 ‎        document.getElementById("uploadStatus");
@@ -1217,227 +914,199 @@
 ‎        new FileReader();
 ‎
 ‎
-‎    reader.onload =
-‎        function(e) {
+‎    reader.onload = function(e) {
 ‎
-‎            try {
+‎        try {
 ‎
-‎                const data =
-‎                    new Uint8Array(
-‎                        e.target.result
-‎                    );
+‎            const data =
+‎                new Uint8Array(e.target.result);
 ‎
-‎
-‎                const workbook =
-‎                    XLSX.read(
-‎                        data,
-‎                        {
-‎                            type: "array"
-‎                        }
-‎                    );
-‎
-‎
-‎                const firstSheet =
-‎                    workbook.Sheets[
-‎                        workbook.SheetNames[0]
-‎                    ];
-‎
-‎
-‎                const rows =
-‎                    XLSX.utils.sheet_to_json(
-‎                        firstSheet,
-‎                        {
-‎                            header: 1,
-‎                            defval: ""
-‎                        }
-‎                    );
-‎
-‎
-‎                const numbers = [];
-‎
-‎
-‎                rows.forEach(row => {
-‎
-‎                    row.forEach(cell => {
-‎
-‎                        if (
-‎                            typeof cell === "number" &&
-‎                            Number.isFinite(cell)
-‎                        ) {
-‎
-‎                            numbers.push(cell);
-‎
-‎                        }
-‎
-‎                        else if (
-‎                            typeof cell === "string"
-‎                        ) {
-‎
-‎                            const parts =
-‎                                cell.split(
-‎                                    /[,\s;]+/
-‎                                );
-‎
-‎
-‎                            parts.forEach(part => {
-‎
-‎                                if (
-‎                                    part.trim() === ""
-‎                                ) {
-‎                                    return;
-‎                                }
-‎
-‎
-‎                                const n =
-‎                                    Number(part);
-‎
-‎
-‎                                if (
-‎                                    Number.isFinite(n)
-‎                                ) {
-‎
-‎                                    numbers.push(n);
-‎
-‎                                }
-‎
-‎                            });
-‎
-‎                        }
-‎
-‎                    });
-‎
+‎            const workbook =
+‎                XLSX.read(data, {
+‎                    type: "array"
 ‎                });
 ‎
 ‎
-‎                if (numbers.length === 0) {
-‎
-‎                    status.innerHTML =
-‎                        '<span class="error">' +
-‎                        'No numerical values were found in this file.' +
-‎                        '</span>';
-‎
-‎                    return;
-‎
-‎                }
+‎            const firstSheet =
+‎                workbook.Sheets[
+‎                    workbook.SheetNames[0]
+‎                ];
 ‎
 ‎
-‎                document.getElementById(
-‎                    "dataInput"
-‎                ).value =
-‎                    numbers.join(", ");
+‎            const rows =
+‎                XLSX.utils.sheet_to_json(
+‎                    firstSheet,
+‎                    {
+‎                        header: 1,
+‎                        defval: ""
+‎                    }
+‎                );
 ‎
+‎
+‎            const numbers = [];
+‎
+‎
+‎            rows.forEach(row => {
+‎
+‎                row.forEach(cell => {
+‎
+‎                    if (
+‎                        typeof cell === "number" &&
+‎                        Number.isFinite(cell)
+‎                    ) {
+‎
+‎                        numbers.push(cell);
+‎
+‎                    } else if (
+‎                        typeof cell === "string"
+‎                    ) {
+‎
+‎                        const parts =
+‎                            cell.split(/[,\s;]+/);
+‎
+‎                        parts.forEach(part => {
+‎
+‎                            const n =
+‎                                Number(part);
+‎
+‎                            if (
+‎                                Number.isFinite(n) &&
+‎                                part.trim() !== ""
+‎                            ) {
+‎
+‎                                numbers.push(n);
+‎
+‎                            }
+‎
+‎                        });
+‎
+‎                    }
+‎
+‎                });
+‎
+‎            });
+‎
+‎
+‎            if (numbers.length === 0) {
 ‎
 ‎                status.innerHTML =
-‎                    '<span class="success">' +
-‎                    "Successfully loaded " +
-‎                    numbers.length +
-‎                    " numbers from " +
-‎                    file.name +
-‎                    "." +
-‎                    "</span>";
+‎                    '<span class="error">No numerical values were found in this file.</span>';
 ‎
-‎
-‎                analyzeData();
-‎
+‎                return;
 ‎            }
 ‎
-‎            catch (error) {
 ‎
-‎                console.error(error);
+‎            document.getElementById("dataInput").value =
+‎                numbers.join(", ");
 ‎
-‎                status.innerHTML =
-‎                    '<span class="error">' +
-‎                    "Could not read this file." +
-‎                    "</span>";
 ‎
-‎            }
+‎            status.innerHTML =
+‎                '<span class="success">' +
+‎                "Successfully loaded " +
+‎                numbers.length +
+‎                " numbers from " +
+‎                file.name +
+‎                "." +
+‎                "</span>";
 ‎
-‎        };
+‎
+‎            analyzeData();
+‎
+‎
+‎        } catch(error) {
+‎
+‎            console.error(error);
+‎
+‎            status.innerHTML =
+‎                '<span class="error">Could not read this file.</span>';
+‎
+‎        }
+‎
+‎    };
 ‎
 ‎
 ‎    reader.readAsArrayBuffer(file);
-‎
 ‎}
 ‎
 ‎
-‎/* =========================================================
+‎/* =========================
+‎   CLEAR
+‎========================= */
+‎
+‎function clearData() {
+‎
+‎    document.getElementById("dataInput").value = "";
+‎
+‎    document.getElementById("fileInput").value = "";
+‎
+‎    document.getElementById("uploadStatus").textContent =
+‎        "No file selected.";
+‎
+‎
+‎    const ids = [
+‎        "dataPoints",
+‎        "uniqueValues",
+‎        "minimum",
+‎        "maximum",
+‎        "average",
+‎        "mostCommon",
+‎        "arithmetic",
+‎        "geometric",
+‎        "period",
+‎        "longestRun",
+‎        "averageChange",
+‎        "outliers"
+‎    ];
+‎
+‎
+‎    ids.forEach(id => {
+‎
+‎        document.getElementById(id).textContent = "-";
+‎
+‎    });
+‎
+‎
+‎    document.getElementById("aiResult").textContent =
+‎        "AI analysis has not been run yet.";
+‎}
+‎
+‎
+‎/* =========================
 ‎   DEEP ANALYSIS
-‎========================================================= */
+‎========================= */
 ‎
 ‎function deepAnalysis() {
 ‎
-‎    const numbers =
-‎        getNumbers();
-‎
+‎    const numbers = getNumbers();
 ‎
 ‎    if (numbers.length === 0) {
 ‎
-‎        alert(
-‎            "Please enter or upload data first."
-‎        );
+‎        alert("Please enter or upload data first.");
 ‎
 ‎        return;
-‎
 ‎    }
 ‎
-‎
 ‎    const average =
-‎        numbers.reduce(
-‎            (a, b) => a + b,
-‎            0
-‎        ) / numbers.length;
-‎
+‎        numbers.reduce((a,b) => a+b, 0)
+‎        / numbers.length;
 ‎
 ‎    const min =
 ‎        Math.min(...numbers);
 ‎
-‎
 ‎    const max =
 ‎        Math.max(...numbers);
-‎
 ‎
 ‎    const arithmetic =
 ‎        detectArithmetic(numbers);
 ‎
-‎
 ‎    const geometric =
 ‎        detectGeometric(numbers);
-‎
 ‎
 ‎    const period =
 ‎        detectPeriod(numbers);
 ‎
-‎
 ‎    const change =
 ‎        averageChange(numbers);
-‎
-‎
-‎    const sorted =
-‎        [...numbers].sort(
-‎            (a, b) => a - b
-‎        );
-‎
-‎
-‎    const q1 =
-‎        percentile(sorted, 25);
-‎
-‎
-‎    const q3 =
-‎        percentile(sorted, 75);
-‎
-‎
-‎    const standardDeviation =
-‎        Math.sqrt(
-‎            numbers.reduce(
-‎                (sum, n) =>
-‎                    sum +
-‎                    Math.pow(
-‎                        n - average,
-‎                        2
-‎                    ),
-‎                0
-‎            ) / numbers.length
-‎        );
 ‎
 ‎
 ‎    let interpretation = "";
@@ -1459,23 +1128,15 @@
 ‎        ". ";
 ‎
 ‎
-‎    interpretation +=
-‎        "The standard deviation is " +
-‎        formatNumber(standardDeviation) +
-‎        ". ";
-‎
-‎
 ‎    if (arithmetic.startsWith("Yes")) {
 ‎
 ‎        interpretation +=
-‎            "An arithmetic sequence pattern was detected. ";
+‎            "The data follows an arithmetic sequence pattern. ";
 ‎
-‎    }
-‎
-‎    else {
+‎    } else {
 ‎
 ‎        interpretation +=
-‎            "No clear arithmetic sequence was detected. ";
+‎            "The data does not form a clear arithmetic sequence. ";
 ‎
 ‎    }
 ‎
@@ -1489,534 +1150,203 @@
 ‎
 ‎
 ‎    if (
-‎        period !==
-‎        "No clear repeating period"
+‎        period !== "No clear repeating period"
 ‎    ) {
 ‎
 ‎        interpretation +=
-‎            "A repeating structure was detected with a period of " +
+‎            "A repeating structure may exist with a period of " +
 ‎            period +
 ‎            ". ";
 ‎
 ‎    }
 ‎
 ‎
-‎    interpretation +=
-‎        "The interquartile range is " +
-‎        formatNumber(q3 - q1) +
-‎        ". ";
-‎
-‎
 ‎    if (change > 0) {
 ‎
 ‎        interpretation +=
-‎            "The average consecutive change is positive.";
+‎            "The average change between consecutive values is positive.";
 ‎
-‎    }
-‎
-‎    else if (change < 0) {
+‎    } else if (change < 0) {
 ‎
 ‎        interpretation +=
-‎            "The average consecutive change is negative.";
+‎            "The average change between consecutive values is negative.";
 ‎
-‎    }
-‎
-‎    else {
+‎    } else {
 ‎
 ‎        interpretation +=
-‎            "The average consecutive change is zero.";
+‎            "There is no average directional change.";
 ‎
 ‎    }
 ‎
 ‎
-‎    document.getElementById(
-‎        "aiResult"
-‎    ).textContent =
+‎    document.getElementById("aiResult").textContent =
 ‎        interpretation;
-‎
 ‎}
 ‎
 ‎
-‎/* =========================================================
-‎   DEMO DATA
-‎========================================================= */
-‎
-‎function loadDemoData() {
-‎
-‎    const demo = [
-‎        2, 4, 4, 6, 8,
-‎        8, 10, 12, 12,
-‎        14, 16, 16, 18
-‎    ];
-‎
-‎
-‎    document.getElementById(
-‎        "dataInput"
-‎    ).value =
-‎        demo.join(", ");
-‎
-‎
-‎    analyzeData();
-‎
-‎}
-‎
-‎
-‎/* =========================================================
-‎   CLEAR
-‎========================================================= */
-‎
-‎function clearData() {
-‎
-‎    document.getElementById(
-‎        "dataInput"
-‎    ).value = "";
-‎
-‎
-‎    document.getElementById(
-‎        "fileInput"
-‎    ).value = "";
-‎
-‎
-‎    document.getElementById(
-‎        "uploadStatus"
-‎    ).textContent =
-‎        "No file selected.";
-‎
-‎
-‎    const ids = [
-‎
-‎        "dataPoints",
-‎        "uniqueValues",
-‎        "minimum",
-‎        "maximum",
-‎        "average",
-‎        "mostCommon",
-‎
-‎        "median",
-‎        "mode",
-‎        "range",
-‎        "standardDeviation",
-‎        "variance",
-‎        "q1",
-‎        "q3",
-‎
-‎        "arithmetic",
-‎        "geometric",
-‎        "period",
-‎        "longestRun",
-‎        "averageChange",
-‎        "outliers"
-‎
-‎    ];
-‎
-‎
-‎    ids.forEach(id => {
-‎
-‎        document.getElementById(
-‎            id
-‎        ).textContent = "-";
-‎
-‎    });
-‎
-‎
-‎    document.getElementById(
-‎        "aiResult"
-‎    ).textContent =
-‎        "Analysis has not been run yet.";
-‎
-‎
-‎    document.getElementById(
-‎        "betSlipResults"
-‎    ).innerHTML =
-‎        "No matches detected yet.";
-‎
-‎
-‎    document.getElementById(
-‎        "ocrStatus"
-‎    ).textContent =
-‎        "Ready to scan.";
-‎
-‎
-‎    document.getElementById(
-‎        "progressBar"
-‎    ).style.width =
-‎        "0%";
-‎
-‎
-‎    document.getElementById(
-‎        "progressContainer"
-‎    ).style.display =
-‎        "none";
-‎
-‎
-‎    if (sequenceChart) {
-‎
-‎        sequenceChart.destroy();
-‎
-‎        sequenceChart = null;
-‎
-‎    }
-‎
-‎}
-‎
-‎
-‎/* =========================================================
+‎/* =========================
 ‎   VIDEO PREVIEW
-‎================== */
-
-    ‎function previewVideo(event) {
+‎========================= */
+‎
+‎function previewVideo(event) {
 ‎
 ‎    const file =
 ‎        event.target.files[0];
 ‎
 ‎    const video =
-‎        document.getElementById(
-‎            "videoPreview"
-‎        );
+‎        document.getElementById("videoPreview");
 ‎
 ‎
 ‎    if (!file) {
 ‎
-‎        video.style.display =
-‎            "none";
+‎        video.style.display = "none";
 ‎
 ‎        return;
-‎
 ‎    }
 ‎
 ‎
 ‎    const url =
 ‎        URL.createObjectURL(file);
 ‎
-‎
 ‎    video.src = url;
 ‎
-‎    video.style.display =
-‎        "block";
+‎    video.style.display = "block";
+‎} /* =========================
+‎   SEQUENCE CHART
+‎========================= */
 ‎
+‎let sequenceChart = null;
 ‎
-‎    document.getElementById(
-‎        "ocrStatus"
-‎    ).textContent =
-‎        "Video loaded. Ready to scan.";
+‎function drawSequenceChart(numbers) {
+‎    const canvas = document.getElementById("sequenceChart");
 ‎
-‎}
+‎    if (!canvas) return;
 ‎
-‎
-‎/* =========================================================
-‎   OCR WORKER
-‎========================================================= */
-‎
-‎async function createOCRWorker() {
-‎
-‎    if (ocrWorker) {
-‎        return ocrWorker;
+‎    if (sequenceChart) {
+‎        sequenceChart.destroy();
 ‎    }
 ‎
+‎    const labels = numbers.map((_, index) => index + 1);
 ‎
-‎    ocrWorker =
-‎        await Tesseract.createWorker(
-‎            "eng"
-‎        );
+‎    sequenceChart = new Chart(canvas, {
+‎        type: "line",
 ‎
+‎        data: {
+‎            labels: labels,
 ‎
-‎    await ocrWorker.setParameters({
+‎            datasets: [{
+‎                label: "Sequence",
+‎                data: numbers,
+‎                borderWidth: 3,
+‎                tension: 0.25,
+‎                pointRadius: 4,
+‎                fill: false
+‎            }]
+‎        },
 ‎
-‎        tessedit_char_whitelist:
-‎            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:.-/ "
+‎        options: {
+‎            responsive: true,
+‎            maintainAspectRatio: false,
 ‎
+‎            plugins: {
+‎                legend: {
+‎                    display: true
+‎                },
+‎
+‎                tooltip: {
+‎                    enabled: true
+‎                }
+‎            },
+‎
+‎            scales: {
+‎                x: {
+‎                    title: {
+‎                        display: true,
+‎                        text: "Data Point"
+‎                    }
+‎                },
+‎
+‎                y: {
+‎                    title: {
+‎                        display: true,
+‎                        text: "Value"
+‎                    }
+‎                }
+‎            }
+‎        }
 ‎    });
-‎
-‎
-‎    return ocrWorker;
-‎
 ‎}
 ‎
+‎</script>
+‎    <script>
+‎const originalAnalyzeData = window.analyzeData;
 ‎
-‎/* =========================================================
-‎   EXTRACT MATCH FROM OCR TEXT
-‎========================================================= */
+‎window.analyzeData = function() {
+‎    originalAnalyzeData();
+‎    drawSequenceChart(getNumbers());
+‎};
+‎    </script>
 ‎
-‎function extractMatch(text) {
-‎
-‎    const lines =
-‎        text
-‎            .replace(/\|/g, "I")
-‎            .split(/\n+/)
-‎            .map(line => line.trim())
-‎            .filter(Boolean);
-‎
-‎
-‎    let team = "";
-‎    let score = "";
-‎
-‎
-‎    for (const line of lines) {
-‎
-‎        /* TEAM NAMES */
-‎
-‎        const teamMatch =
-‎            line.match(
-‎                /^(.{2,40}?)\s+(?:vs\.?|v)\s+(.{2,40})$/i
-‎            );
-‎
-‎
-‎        if (teamMatch) {
-‎
-‎            team =
-‎                teamMatch[1].trim() +
-‎                " vs " +
-‎                teamMatch[2].trim();
-‎
-‎        }
-‎
-‎
-‎        /* SCORE */
-‎
-‎        const scoreMatch =
-‎            line.match(
-‎                /\b(\d{1,2})\s*[:\-]\s*(\d{1,2})\b/
-‎            );
-‎
-‎
-‎        if (scoreMatch) {
-‎
-‎            score =
-‎                scoreMatch[1] +
-‎                ":" +
-‎                scoreMatch[2];
-‎
-‎        }
-‎
-‎    }
-‎
-‎
-‎    if (!score) {
-‎
-‎        const scoreAnywhere =
-‎            text.match(
-‎                /\b(\d{1,2})\s*[:\-]\s*(\d{1,2})\b/
-‎            );
-‎
-‎
-‎        if (scoreAnywhere) {
-‎
-‎            score =
-‎                scoreAnywhere[1] +
-‎                ":" +
-‎                scoreAnywhere[2];
-‎
-‎        }
-‎
-‎    }
-‎
-‎
-‎    return {
-‎        team,
-‎        score
-‎    };
-‎
-‎}
-‎
-‎
-‎/* =========================================================
-‎   SCAN VIDEO
-‎========================================================= */
+‎<script>
+‎let ocrWorker = null;
 ‎
 ‎async function scanFastScroll() {
+‎    const video = document.getElementById("videoPreview");
+‎    const status = document.getElementById("ocrStatus");
+‎    const resultsBox = document.getElementById("betSlipResults");
 ‎
-‎    const video =
-‎        document.getElementById(
-‎            "videoPreview"
-‎        );
-‎
-‎
-‎    const status =
-‎        document.getElementById(
-‎            "ocrStatus"
-‎        );
-‎
-‎
-‎    const resultsBox =
-‎        document.getElementById(
-‎            "betSlipResults"
-‎        );
-‎
-‎
-‎    const scanButton =
-‎        document.getElementById(
-‎            "scanButton"
-‎        );
-‎
-‎
-‎    const progressContainer =
-‎        document.getElementById(
-‎            "progressContainer"
-‎        );
-‎
-‎
-‎    const progressBar =
-‎        document.getElementById(
-‎            "progressBar"
-‎        );
-‎
-‎
-‎    if (
-‎        !video ||
-‎        !video.src
-‎    ) {
-‎
-‎        status.textContent =
-‎            "Please upload a screen recording first.";
-‎
+‎    if (!video || !video.src) {
+‎        status.textContent = "Please upload a screen recording first.";
 ‎        return;
-‎
 ‎    }
 ‎
-‎
-‎    if (
-‎        typeof Tesseract ===
-‎        "undefined"
-‎    ) {
-‎
-‎        status.textContent =
-‎            "OCR engine is not loaded. Check your internet connection.";
-‎
+‎    if (typeof Tesseract === "undefined") {
+‎        status.textContent = "OCR engine is not loaded. Check your internet connection.";
 ‎        return;
-‎
 ‎    }
-‎
 ‎
 ‎    try {
+‎        status.textContent = "Starting OCR scanner...";
 ‎
-‎        scanButton.disabled =
-‎            true;
+‎        if (!ocrWorker) {
+‎            ocrWorker = await Tesseract.createWorker("eng");
 ‎
-‎
-‎        progressContainer.style.display =
-‎            "block";
-‎
-‎
-‎        progressBar.style.width =
-‎            "0%";
-‎
-‎
-‎        status.textContent =
-‎            "Starting OCR scanner...";
-‎
-‎
-‎        const worker =
-‎            await createOCRWorker();
-‎
-‎
-‎        const canvas =
-‎            document.createElement(
-‎                "canvas"
-‎            );
-‎
-‎
-‎        const ctx =
-‎            canvas.getContext(
-‎                "2d"
-‎            );
-‎
-‎
-‎        canvas.width =
-‎            video.videoWidth;
-‎
-‎
-‎        canvas.height =
-‎            video.videoHeight;
-‎
-‎
-‎        if (
-‎            canvas.width === 0 ||
-‎            canvas.height === 0
-‎        ) {
-‎
-‎            throw new Error(
-‎                "Video dimensions are unavailable."
-‎            );
-‎
+‎            await ocrWorker.setParameters({
+‎                tessedit_char_whitelist:
+‎                    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:.-/"
+‎            });
 ‎        }
 ‎
+‎        const canvas = document.createElement("canvas");
+‎        const ctx = canvas.getContext("2d");
+‎
+‎        canvas.width = video.videoWidth;
+‎        canvas.height = video.videoHeight;
 ‎
 ‎        const detectedMatches = [];
+‎        const seenMatches = new Set();
 ‎
-‎        const seenMatches =
-‎            new Set();
-‎
-‎
-‎        const duration =
-‎            video.duration || 0;
-‎
+‎        const duration = video.duration || 0;
 ‎
 ‎        if (!duration) {
-‎
-‎            throw new Error(
-‎                "The recording could not be read."
-‎            );
-‎
+‎            status.textContent = "The recording could not be read.";
+‎            return;
 ‎        }
 ‎
+‎        const step = 0.35;
 ‎
-‎        /*
-‎            0.7 seconds between frames.
-‎            This is considerably lighter
-‎            on a mobile phone than scanning
-‎            every 0.35 seconds.
-‎        */
+‎        for (let time = 0; time < duration; time += step) {
 ‎
-‎        const step =
-‎            0.7;
+‎            video.currentTime = time;
 ‎
+‎            await new Promise(resolve => {
+‎                const done = () => {
+‎                    video.removeEventListener("seeked", done);
+‎                    resolve();
+‎                };
 ‎
-‎        const totalFrames =
-‎            Math.ceil(
-‎                duration / step
-‎            );
-‎
-‎
-‎        let frameNumber = 0;
-‎
-‎
-‎        for (
-‎            let time = 0;
-‎            time < duration;
-‎            time += step
-‎        ) {
-‎
-‎            frameNumber++;
-‎
-‎
-‎            video.currentTime =
-‎                time;
-‎
-‎
-‎            await new Promise(
-‎                resolve => {
-‎
-‎                    const done =
-‎                        () => {
-‎
-‎                            video.removeEventListener(
-‎                                "seeked",
-‎                                done
-‎                            );
-‎
-‎                            resolve();
-‎
-‎                        };
-‎
-‎
-‎                    video.addEventListener(
-‎                        "seeked",
-‎                        done
-‎                    );
-‎
-‎                }
-‎            );
-‎
+‎                video.addEventListener("seeked", done);
+‎            });
 ‎
 ‎            ctx.drawImage(
 ‎                video,
@@ -2026,317 +1356,129 @@
 ‎                canvas.height
 ‎            );
 ‎
+‎            const result = await ocrWorker.recognize(canvas);
+‎            const text = result.data.text || "";
 ‎
-‎            const result =
-‎                await worker.recognize(
-‎                    canvas
-‎                );
+‎            const cleanText = text
+‎                .replace(/\n+/g, "\n")
+‎                .replace(/[|]/g, "I");
 ‎
+‎            const lines = cleanText
+‎                .split("\n")
+‎                .map(line => line.trim())
+‎                .filter(Boolean);
 ‎
-‎            const text =
-‎                result.data.text ||
-‎                "";
+‎            let team = "";
+‎            let score = "";
 ‎
+‎            for (const line of lines) {
 ‎
-‎            const match =
-‎                extractMatch(text);
+‎                const teamMatch = line.match(
+‎    /^(.{2,40}?)\s+(?:vs\.?|v)\s+(.{2,40})$/i
+‎);
 ‎
+‎if (teamMatch) {
+‎    const homeTeam = teamMatch[1].trim();
+‎    const awayTeam = teamMatch[2].trim();
 ‎
-‎            if (
-‎                match.score
-‎            ) {
-‎
-‎                const key =
-‎                    match.team +
-‎                    "|" +
-‎                    match.score;
-‎
-‎
-‎                if (
-‎                    !seenMatches.has(
-‎                        key
-‎                    )
-‎                ) {
-‎
-‎                    seenMatches.add(
-‎                        key
-‎                    );
-‎
-‎
-‎                    detectedMatches.push({
-‎
-‎                        team:
-‎                            match.team ||
-‎                            "Team names not detected",
-‎
-‎                        score:
-‎                            match.score,
-‎
-‎                        time:
-‎                            time
-‎
-‎                    });
-‎
+‎    team = homeTeam + " vs " + awayTeam;
 ‎                }
 ‎
-‎            }
-‎
-‎
-‎            const percent =
-‎                Math.min(
-‎                    100,
-‎                    Math.round(
-‎                        (frameNumber /
-‎                            totalFrames) *
-‎                        100
-‎                    )
+‎                const scoreMatch = line.match(
+‎                    /\b(\d{1,2})\s*[:\-]\s*(\d{1,2})\b/
 ‎                );
 ‎
+‎                if (scoreMatch) {
+‎                    score =
+‎                        scoreMatch[1] +
+‎                        ":" +
+‎                        scoreMatch[2];
+‎                }
+‎            }
 ‎
-‎            progressBar.style.width =
-‎                percent + "%";
+‎            if (team && score) {
 ‎
+‎                const key = team + "|" + score;
+‎
+‎                if (!seenMatches.has(key)) {
+‎                    seenMatches.add(key);
+‎
+‎                    detectedMatches.push({
+‎                        team: team,
+‎                        score: score,
+‎                        time: time
+‎                    });
+‎                }
+‎            }
 ‎
 ‎            status.textContent =
-‎                "Scanning video... " +
-‎                percent +
+‎                "Scanning fast scroll... " +
+‎                Math.round((time / duration) * 100) +
 ‎                "%";
-‎
 ‎        }
 ‎
+‎        resultsBox.innerHTML = "";
 ‎
-‎        /* DISPLAY RESULTS */
-‎
-‎        if (
-‎            detectedMatches.length === 0
-‎        ) {
+‎        if (detectedMatches.length === 0) {
 ‎
 ‎            resultsBox.innerHTML =
-‎                '<p class="warning">' +
-‎                "No scores were detected. " +
-‎                "Try a clearer recording or a video where the scores remain visible longer." +
-‎                "</p>";
-‎
+‎                "<p>No team scores were detected. Try a clearer recording.</p>";
 ‎
 ‎            status.textContent =
-‎                "Scan complete. No scores detected.";
+‎                "Scan complete. No team scores detected.";
 ‎
 ‎            return;
-‎
 ‎        }
-‎
-‎
-‎        let html = "";
-‎
-‎        html +=
-‎            '<div class="table-wrapper">';
-‎
-‎        html +=
-‎            "<table>";
-‎
-‎        html +=
-‎            "<thead>" +
-‎            "<tr>" +
-‎            "<th>#</th>" +
-‎            "<th>Match</th>" +
-‎            "<th>Score</th>" +
-‎            "<th>Video Time</th>" +
-‎            "</tr>" +
-‎            "</thead>";
-‎
-‎        html += "<tbody>";
-‎
 ‎
 ‎        const numbers = [];
 ‎
+‎        detectedMatches.forEach(match => {
 ‎
-‎        detectedMatches.forEach(
-‎            (match, index) => {
+‎            const parts = match.score.split(":");
 ‎
-‎                const parts =
-‎                    match.score.split(":");
+‎            const homeScore = Number(parts[0]);
+‎            const awayScore = Number(parts[1]);
 ‎
+‎            numbers.push(homeScore);
+‎            numbers.push(awayScore);
 ‎
-‎                const homeScore =
-‎                    Number(parts[0]);
+‎            const item = document.createElement("div");
 ‎
+‎            item.style.padding = "12px";
+‎            item.style.marginTop = "8px";
+‎            item.style.borderRadius = "8px";
+‎            item.style.background = "rgba(255,255,255,0.08)";
 ‎
-‎                const awayScore =
-‎                    Number(parts[1]);
+‎            item.innerHTML =
+‎                "<strong>" +
+‎                match.team +
+‎                "</strong><br>" +
+‎                "FT Score: " +
+‎                match.score;
 ‎
+‎            resultsBox.appendChild(item);
+‎        });
 ‎
-‎                if (
-‎                    Number.isFinite(
-‎                        homeScore
-‎                    )
-‎                ) {
-‎
-‎                    numbers.push(
-‎                        homeScore
-‎                    );
-‎
-‎                }
-‎
-‎
-‎                if (
-‎                    Number.isFinite(
-‎                        awayScore
-‎                    )
-‎                ) {
-‎
-‎                    numbers.push(
-‎                        awayScore
-‎                    );
-‎
-‎                }
-‎
-‎
-‎                html +=
-‎                    "<tr>" +
-‎
-‎                    "<td>" +
-‎                    (index + 1) +
-‎                    "</td>" +
-‎
-‎                    "<td>" +
-‎                    escapeHTML(
-‎                        match.team
-‎                    ) +
-‎                    "</td>" +
-‎
-‎                    '<td class="match-score">' +
-‎                    escapeHTML(
-‎                        match.score
-‎                    ) +
-‎                    "</td>" +
-‎
-‎                    "<td>" +
-‎                    formatTime(
-‎                        match.time
-‎                    ) +
-‎                    "</td>" +
-‎
-‎                    "</tr>";
-‎
-‎            }
-‎        );
-‎
-‎
-‎        html +=
-‎            "</tbody></table></div>";
-‎
-‎
-‎        resultsBox.innerHTML =
-‎            html;
-‎
-‎
-‎        /* SEND SCORES TO ANALYZER */
-‎
-‎        document.getElementById(
-‎            "dataInput"
-‎        ).value =
+‎        document.getElementById("dataInput").value =
 ‎            numbers.join(", ");
-‎
-‎
-‎        analyzeData();
-‎
 ‎
 ‎        status.textContent =
 ‎            "Scan complete. " +
 ‎            detectedMatches.length +
-‎            " unique score(s) detected.";
+‎            " matches detected.";
 ‎
-‎    }
+‎        analyzeData();
 ‎
-‎
-‎    catch (error) {
+‎    } catch (error) {
 ‎
 ‎        console.error(error);
 ‎
-‎
 ‎        status.textContent =
-‎            "OCR scanning failed: " +
-‎            error.message;
-‎
-‎
-‎        resultsBox.innerHTML =
-‎            '<p class="error">' +
-‎            "The scanner could not complete. Try a shorter or clearer video." +
-‎            "</p>";
-‎
+‎            "OCR scanning failed. Please try again with a clearer recording.";
 ‎    }
-‎
-‎
-‎    finally {
-‎
-‎        scanButton.disabled =
-‎            false;
-‎
-‎    }
-‎
 ‎}
-‎
-‎
-‎/* =========================================================
-‎   FORMAT VIDEO TIME
-‎========================================================= */
-‎
-‎function formatTime(seconds) {
-‎
-‎    const mins =
-‎        Math.floor(
-‎            seconds / 60
-‎        );
-‎
-‎
-‎    const secs =
-‎        Math.floor(
-‎            seconds % 60
-‎        );
-‎
-‎
-‎    return (
-‎        String(mins).padStart(2, "0") +
-‎        ":" +
-‎        String(secs).padStart(2, "0")
-‎    );
-‎
-‎}
-‎
-‎
-‎/* =========================================================
-‎   ESCAPE HTML
-‎========================================================= */
-‎
-‎function escapeHTML(value) {
-‎
-‎    return String(value)
-‎        .replace(/&/g, "&amp;")
-‎        .replace(/</g, "&lt;")
-‎        .replace(/>/g, "&gt;")
-‎        .replace(/"/g, "&quot;")
-‎        .replace(/'/g, "&#039;");
-‎
-‎}
-‎
-‎
-‎/* =========================================================
-‎   PAGE INITIALIZATION
-‎========================================================= */
-‎
-‎window.addEventListener(
-‎    "load",
-‎    () => {
-‎
-‎        console.log(
-‎            "Sequence AI Analyzer loaded successfully."
-‎        );
-‎
-‎    }
-‎);
-‎
-‎</script>
-‎
+‎    </script>
+‎    
 ‎</body>
-‎</html>
+‎  </html>
 ‎
