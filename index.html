@@ -1399,85 +1399,376 @@
 ‎            if (team && score) {
 ‎
 ‎                const key = team + "|" + score;
-‎
-‎                if (!seenMatches.has(key)) {
-‎                    seenMatches.add(key);
-‎
-‎                    detectedMatches.push({
-‎                        team: team,
-‎                        score: score,
-‎                        time: time
-‎                    });
-‎                }
-‎            }
-‎
-‎            status.textContent =
-‎                "Scanning fast scroll... " +
-‎                Math.round((time / duration) * 100) +
-‎                "%";
-‎        }
-‎
-‎        resultsBox.innerHTML = "";
-‎
-‎        if (detectedMatches.length === 0) {
-‎
-‎            resultsBox.innerHTML =
-‎                "<p>No team scores were detected. Try a clearer recording.</p>";
-‎
-‎            status.textContent =
-‎                "Scan complete. No team scores detected.";
-‎
-‎            return;
-‎        }
-‎
-‎        const numbers = [];
-‎
-‎        detectedMatches.forEach(match => {
-‎
-‎            const parts = match.score.split(":");
-‎
-‎            const homeScore = Number(parts[0]);
-‎            const awayScore = Number(parts[1]);
-‎
-‎            numbers.push(homeScore);
-‎            numbers.push(awayScore);
-‎
-‎            const item = document.createElement("div");
-‎
-‎            item.style.padding = "12px";
-‎            item.style.marginTop = "8px";
-‎            item.style.borderRadius = "8px";
-‎            item.style.background = "rgba(255,255,255,0.08)";
-‎
-‎            item.innerHTML =
-‎                "<strong>" +
-‎                match.team +
-‎                "</strong><br>" +
-‎                "FT Score: " +
-‎                match.score;
-‎
-‎            resultsBox.appendChild(item);
-‎        });
-‎
-‎        document.getElementById("dataInput").value =
-‎            numbers.join(", ");
-‎
-‎        status.textContent =
-‎            "Scan complete. " +
-‎            detectedMatches.length +
-‎            " matches detected.";
-‎
-‎        analyzeData();
-‎
-‎    } catch (error) {
-‎
-‎        console.error(error);
-‎
-‎        status.textContent =
-‎            "OCR scanning failed. Please try again with a clearer recording.";
-‎    }
-‎}
-‎    </script>
+‎async function scanFastScroll() {
+
+    const video = document.getElementById("videoPreview");
+    const status = document.getElementById("ocrStatus");
+    const resultsBox = document.getElementById("betSlipResults");
+
+    if (!video || !video.src) {
+        status.textContent = "Please upload a screen recording first.";
+        return;
+    }
+
+    if (typeof Tesseract === "undefined") {
+        status.textContent =
+            "OCR engine is not loaded. Check your internet connection.";
+        return;
+    }
+
+    try {
+
+        status.textContent = "Preparing high-accuracy OCR scanner...";
+
+        /* Create OCR worker only once */
+        if (!ocrWorker) {
+
+            ocrWorker = await Tesseract.createWorker("eng");
+
+            await ocrWorker.setParameters({
+                tessedit_char_whitelist:
+                    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:.-/"
+            });
+        }
+
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d", {
+            willReadFrequently: true
+        });
+
+        const width = video.videoWidth;
+        const height = video.videoHeight;
+
+        if (!width || !height) {
+            status.textContent =
+                "The video is not ready. Please wait and try again.";
+            return;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const duration = video.duration;
+
+        if (!Number.isFinite(duration) || duration <= 0) {
+            status.textContent =
+                "The recording could not be read.";
+            return;
+        }
+
+        /*
+         * We use several frames close together.
+         * This helps reduce mistakes caused by fast scrolling.
+         */
+        const step = 0.20;
+
+        const detections = [];
+
+        let lastText = "";
+
+        for (
+            let time = 0;
+            time < duration;
+            time += step
+        ) {
+
+            video.currentTime = Math.min(time, duration - 0.01);
+
+            await new Promise(resolve => {
+
+                const done = () => {
+                    video.removeEventListener(
+                        "seeked",
+                        done
+                    );
+
+                    resolve();
+                };
+
+                video.addEventListener(
+                    "seeked",
+                    done,
+                    { once: true }
+                );
+
+            });
+
+            /*
+             * Draw the current video frame.
+             */
+            ctx.drawImage(
+                video,
+                0,
+                0,
+                width,
+                height
+            );
+
+            /*
+             * OCR the frame.
+             */
+            const result =
+                await ocrWorker.recognize(canvas);
+
+            const text =
+                (result.data.text || "")
+                .replace(/\r/g, "")
+                .trim();
+
+            if (!text) {
+                continue;
+            }
+
+            /*
+             * Avoid processing exactly identical
+             * OCR results repeatedly.
+             */
+            if (text === lastText) {
+                continue;
+            }
+
+            lastText = text;
+
+            const lines = text
+                .split("\n")
+                .map(line => line.trim())
+                .filter(Boolean);
+
+            /*
+             * Look for score patterns such as:
+             * 2:1
+             * 0-3
+             * 1 : 0
+             */
+            for (let i = 0; i < lines.length; i++) {
+
+                const line = lines[i];
+
+                const scoreMatch = line.match(
+                    /\b(\d{1,2})\s*[:\-]\s*(\d{1,2})\b/
+                );
+
+                if (!scoreMatch) {
+                    continue;
+                }
+
+                const homeScore =
+                    Number(scoreMatch[1]);
+
+                const awayScore =
+                    Number(scoreMatch[2]);
+
+                /*
+                 * Try to find the team names.
+                 * First check the same line.
+                 */
+                let teamText = "";
+
+                const vsMatch = line.match(
+                    /^(.{2,50}?)\s+(?:vs\.?|v)\s+(.{2,50})$/i
+                );
+
+                if (vsMatch) {
+
+                    teamText =
+                        vsMatch[1].trim() +
+                        " vs " +
+                        vsMatch[2].trim();
+
+                } else {
+
+                    /*
+                     * If the score is on its own line,
+                     * inspect nearby lines.
+                     */
+                    const previousLine =
+                        i > 0 ? lines[i - 1] : "";
+
+                    const nextLine =
+                        i + 1 < lines.length
+                            ? lines[i + 1]
+                            : "";
+
+                    if (
+                        previousLine &&
+                        !/\d{1,2}\s*[:\-]\s*\d{1,2}/.test(
+                            previousLine
+                        )
+                    ) {
+
+                        teamText = previousLine;
+
+                    } else if (nextLine) {
+
+                        teamText = nextLine;
+
+                    }
+
+                }
+
+                /*
+                 * Keep the reading together with
+                 * the video position.
+                 */
+                detections.push({
+                    team: teamText || "Team names not clearly read",
+                    score:
+                        homeScore +
+                        ":" +
+                        awayScore,
+                    time: time
+                });
+
+            }
+
+            status.textContent =
+                "Scanning fast scroll... " +
+                Math.min(
+                    100,
+                    Math.round(
+                        (time / duration) * 100
+                    )
+                ) +
+                "%";
+
+        }
+
+        /*
+         * Group repeated readings from nearby frames.
+         */
+        const confirmed = [];
+
+        for (const detection of detections) {
+
+            const previous =
+                confirmed.length
+                    ? confirmed[confirmed.length - 1]
+                    : null;
+
+            if (
+                previous &&
+                previous.score === detection.score &&
+                Math.abs(
+                    previous.time -
+                    detection.time
+                ) < 0.8
+            ) {
+
+                /*
+                 * If the newer reading has a
+                 * better-looking team name,
+                 * keep it.
+                 */
+                if (
+                    previous.team ===
+                    "Team names not clearly read" &&
+                    detection.team !==
+                    "Team names not clearly read"
+                ) {
+                    previous.team =
+                        detection.team;
+                }
+
+                previous.confirmations++;
+
+            } else {
+
+                confirmed.push({
+                    team: detection.team,
+                    score: detection.score,
+                    time: detection.time,
+                    confirmations: 1
+                });
+
+            }
+
+        }
+
+        resultsBox.innerHTML = "";
+
+        if (confirmed.length === 0) {
+
+            resultsBox.innerHTML =
+                "<p>No scores were detected.</p>" +
+                "<p>Try a clearer recording or a recording where the score area is easier to see.</p>";
+
+            status.textContent =
+                "Scan complete. No scores detected.";
+
+            return;
+        }
+
+        /*
+         * Create the numerical sequence.
+         */
+        const numbers = [];
+
+        confirmed.forEach(match => {
+
+            const parts =
+                match.score.split(":");
+
+            const homeScore =
+                Number(parts[0]);
+
+            const awayScore =
+                Number(parts[1]);
+
+            numbers.push(homeScore);
+            numbers.push(awayScore);
+
+            const item =
+                document.createElement("div");
+
+            item.style.padding = "12px";
+            item.style.marginTop = "8px";
+            item.style.borderRadius = "8px";
+            item.style.background =
+                "rgba(255,255,255,0.08)";
+
+            item.innerHTML =
+                "<strong>" +
+                match.team +
+                "</strong><br>" +
+                "FT Score: " +
+                match.score +
+                "<br>" +
+                "<small>" +
+                "Confirmed from " +
+                match.confirmations +
+                " nearby frame(s)" +
+                "</small>";
+
+            resultsBox.appendChild(item);
+
+        });
+
+        /*
+         * Send the detected scores directly
+         * into the existing analyzer.
+         */
+        document.getElementById(
+            "dataInput"
+        ).value = numbers.join(", ");
+
+        analyzeData();
+
+        status.textContent =
+            "Scan complete. " +
+            confirmed.length +
+            " score reading(s) detected and analyzed.";
+
+    } catch (error) {
+
+        console.error(error);
+
+        status.textContent =
+            "OCR scanning failed. Please try again with a clearer recording.";
+
+    }
+  }
+  
+  </script>
 ‎    
 ‎</body>
 ‎  </html>
