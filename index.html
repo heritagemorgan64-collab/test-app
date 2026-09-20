@@ -384,31 +384,64 @@
 ‎<div class="card">
 ‎
 ‎<h2>🎥 Screen Recording</h2>
-‎
-‎<p>
-‎You can upload a screen recording for viewing. Automatic number extraction from video will be added later.
-‎</p>
-‎
-‎<input
-‎type="file"
-‎id="videoInput"
-‎accept="video/*"
-‎onchange="previewVideo(event)"
-‎>
-‎
-‎<video
-‎id="videoPreview"
-‎controls
-‎style="width:100%;margin-top:15px;border-radius:12px;display:none;">
-‎</video>
-‎<button onclick="scanFastScroll()" style="margin-top:15px;">
-‎    🔎 Scan Fast Scroll
-‎    </button>
-‎
-‎    <p id="ocrStatus" style="margin-top:10px;">
-‎    Ready to scan.
-‎</p>
-‎</div>
+
+<p>
+    Upload a screen recording of the betting slip.
+</p>
+
+<label
+    for="videoInput"
+    style="
+        display:inline-block;
+        padding:12px 18px;
+        margin-top:10px;
+        background:#2563eb;
+        color:white;
+        border-radius:10px;
+        cursor:pointer;
+        font-weight:bold;
+    "
+>
+    📁 Choose Screen Recording
+</label>
+
+<input
+    type="file"
+    id="videoInput"
+    accept="video/*"
+    onchange="previewVideo(event)"
+    style="display:none;"
+>
+
+<video
+    id="videoPreview"
+    controls
+    style="
+        width:100%;
+        margin-top:15px;
+        border-radius:12px;
+        display:none;
+    "
+></video>
+
+<button
+    onclick="scanFastScroll()"
+    style="margin-top:15px;"
+>
+    🔎 Scan Fast Scroll
+</button>
+
+<p id="ocrStatus" style="margin-top:10px;">
+    Ready to scan.
+</p>
+
+<div
+    id="betSlipResults"
+    class="result"
+    style="margin-top:15px;"
+>
+    No scan results yet.
+</div>
 ‎
 ‎
 ‎<footer>
