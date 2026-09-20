@@ -1211,7 +1211,9 @@
 ‎    video.src = url;
 ‎
 ‎    video.style.display = "block";
-‎} /* =========================
+‎}
+    
+    /* =========================
 ‎   SEQUENCE CHART
 ‎========================= */
 ‎
@@ -1420,6 +1422,7 @@
 
         status.textContent = "Preparing high-accuracy OCR scanner...";
 
+        
         /* Create OCR worker only once */
         if (!ocrWorker) {
 
@@ -1493,6 +1496,7 @@
 
             });
 
+           
             /*
              * Draw the current video frame.
              */
@@ -1504,6 +1508,7 @@
                 height
             );
 
+          
             /*
              * OCR the frame.
              */
@@ -1534,6 +1539,7 @@
                 .map(line => line.trim())
                 .filter(Boolean);
 
+           
             /*
              * Look for score patterns such as:
              * 2:1
@@ -1558,6 +1564,7 @@
                 const awayScore =
                     Number(scoreMatch[2]);
 
+               
                 /*
                  * Try to find the team names.
                  * First check the same line.
@@ -1606,6 +1613,7 @@
 
                 }
 
+             
                 /*
                  * Keep the reading together with
                  * the video position.
@@ -1633,6 +1641,7 @@
 
         }
 
+       
         /*
          * Group repeated readings from nearby frames.
          */
@@ -1743,6 +1752,7 @@
 
         });
 
+       
         /*
          * Send the detected scores directly
          * into the existing analyzer.
