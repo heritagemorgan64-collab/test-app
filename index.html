@@ -1,853 +1,113 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sequence AI Analyzer</title>
-
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-
 <style>
-*{box-sizing:border-box}
-body{
-    margin:0;
-    font-family:Arial,sans-serif;
-    background:#0f172a;
-    color:#f8fafc;
-}
-.container{
-    max-width:900px;
-    margin:auto;
-    padding:20px;
-}
-header{
-    text-align:center;
-    padding:20px 0 10px;
-}
-h1{margin:0 0 8px;font-size:30px}
-.subtitle{color:#cbd5e1}
-.card{
-    background:#1e293b;
-    border-radius:18px;
-    padding:22px;
-    margin:18px 0;
-    box-shadow:0 8px 25px rgba(0,0,0,.18);
-}
-h2{margin-top:0}
-textarea,input[type=file]{
-    width:100%;
-    margin-top:10px;
-}
-textarea{
-    min-height:120px;
-    padding:14px;
-    border-radius:12px;
-    border:1px solid #475569;
-    background:#0f172a;
-    color:#fff;
-    font-size:16px;
-}
-button,.file-label{
-    width:100%;
-    border:0;
-    border-radius:12px;
-    padding:15px;
-    margin-top:12px;
-    font-size:17px;
-    font-weight:bold;
-    cursor:pointer;
-}
-.analyze{background:#22c55e;color:#06240f}
-.clear{background:#ef4444;color:white}
-.ai{background:#8b5cf6;color:white}
-.primary{background:#2563eb;color:white}
-.file-label{
-    display:block;
-    text-align:center;
-    background:#2563eb;
-    color:white;
-}
-input[type=file]{display:none}
-.stats{
-    display:grid;
-    grid-template-columns:repeat(2,1fr);
-    gap:10px;
-}
-.stat{
-    background:#0f172a;
-    padding:14px;
-    border-radius:12px;
-}
-.stat strong{display:block;font-size:20px;margin-top:5px}
-.result-box{
-    background:#0f172a;
-    border-radius:14px;
-    padding:16px;
-    overflow:auto;
-}
-video{
-    width:100%;
-    max-height:600px;
-    margin-top:15px;
-    border-radius:12px;
-    background:#000;
-}
-.progress{
-    width:100%;
-    height:16px;
-    background:#334155;
-    border-radius:20px;
-    overflow:hidden;
-    margin-top:16px;
-}
-.progress-bar{
-    width:0%;
-    height:100%;
-    background:#22c55e;
-    transition:width .15s;
-}
-table{width:100%;border-collapse:collapse}
-th,td{
-    padding:12px;
-    text-align:left;
-    border-top:1px solid #334155;
-}
-th{color:#cbd5e1}
-.small{color:#94a3b8;font-size:14px}
-canvas{background:#fff;border-radius:12px;padding:8px}
+*{box-sizing:border-box}body{margin:0;background:#0f172a;color:#f8fafc;font-family:Arial,sans-serif}
+.container{width:95%;max-width:1000px;margin:auto;padding:20px 0 50px}.card{background:#1e293b;padding:18px;border-radius:16px;margin:16px 0}
+h1{text-align:center}h2{margin-top:0}.sub{text-align:center;color:#cbd5e1}
+textarea{width:100%;min-height:110px;padding:12px;border-radius:10px;background:#0f172a;color:#fff;border:1px solid #475569}
+button{width:100%;padding:12px;margin-top:10px;border:0;border-radius:10px;font-weight:bold;cursor:pointer}
+.green{background:#22c55e}.red{background:#ef4444;color:#fff}.blue{background:#2563eb;color:#fff}.purple{background:#8b5cf6;color:#fff}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.stat,.box{background:#0f172a;padding:12px;border-radius:10px}
+.stat b{display:block;color:#93c5fd;margin-bottom:4px}.status{padding:10px;background:#0f172a;border-radius:10px;color:#cbd5e1}
+.file{display:block;text-align:center;padding:13px;background:#2563eb;border-radius:10px;font-weight:bold;cursor:pointer}
+.hidden{display:none}video{width:100%;max-height:520px;background:#000;border-radius:12px;margin-top:12px}
+.progress{height:9px;background:#334155;border-radius:20px;margin-top:10px}.bar{height:100%;width:0;background:#22c55e}
+table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #334155;text-align:left}
+.small{font-size:13px;color:#94a3b8}@media(max-width:650px){.grid{grid-template-columns:1fr}}
 </style>
 </head>
+<body><div class="container">
+<h1>Sequence AI Analyzer</h1><p class="sub">Analyze numerical data and extract scores from screen recordings.</p>
 
-<body>
-<div class="container">
+<div class="card"><h2>📊 Data Analysis</h2>
+<textarea id="dataInput" placeholder="1, 2, 3, 4, 5, 6, 7"></textarea>
+<div class="grid"><button class="green" onclick="analyze()">Analyze Data</button><button class="red" onclick="clearData()">Clear</button></div></div>
 
-<header>
-    <h1>Sequence AI Analyzer</h1>
-    <div class="subtitle">Analyze numerical data, detect patterns and scan screen-recorded scores.</div>
-</header>
+<div class="card"><h2>📁 CSV / Excel</h2><input id="fileInput" type="file" accept=".csv,.xls,.xlsx"><p id="uploadStatus" class="status">No file selected.</p></div>
 
-<div class="card">
-    <h2>📊 Data Analysis</h2>
-    <textarea id="dataInput" placeholder="Enter numbers separated by commas, spaces or semicolons&#10;Example: 1, 2, 3, 4, 5, 6"></textarea>
-    <button class="analyze" onclick="analyzeData()">Analyze Data</button>
-    <button class="clear" onclick="clearData()">Clear</button>
-</div>
+<div class="card"><h2>📈 Statistics</h2><div class="grid">
+<div class="stat"><b>Data Points</b><span id="points">—</span></div><div class="stat"><b>Unique</b><span id="unique">—</span></div>
+<div class="stat"><b>Minimum</b><span id="min">—</span></div><div class="stat"><b>Maximum</b><span id="max">—</span></div>
+<div class="stat"><b>Average</b><span id="avg">—</span></div><div class="stat"><b>Median</b><span id="median">—</span></div>
+<div class="stat"><b>Mode</b><span id="mode">—</span></div><div class="stat"><b>Std. Deviation</b><span id="sd">—</span></div>
+<div class="stat"><b>Variance</b><span id="variance">—</span></div><div class="stat"><b>Range</b><span id="range">—</span></div>
+</div></div>
 
-<div class="card">
-    <h2>📁 Upload CSV / Excel</h2>
-    <label class="file-label">
-        Choose CSV / XLS / XLSX
-        <input id="fileInput" type="file" accept=".csv,.xls,.xlsx" onchange="handleSpreadsheet(event)">
-    </label>
-    <p id="uploadStatus" class="small">No file selected.</p>
-</div>
+<div class="card"><h2>📈 Sequence Chart</h2><canvas id="chart"></canvas></div>
+<div class="card"><h2>🔎 Pattern Detection</h2><div id="patterns" class="box">No analysis yet.</div></div>
+<div class="card"><h2>🧠 Deep Analysis</h2><button class="purple" onclick="deep()">Run Deep Analysis</button><div id="deep" class="box" style="margin-top:10px">Not run yet.</div></div>
 
-<div class="card">
-    <h2>Basic Statistics</h2>
-    <div class="stats">
-        <div class="stat">Data Points<strong id="dataPoints">—</strong></div>
-        <div class="stat">Unique Values<strong id="uniqueValues">—</strong></div>
-        <div class="stat">Minimum<strong id="minimum">—</strong></div>
-        <div class="stat">Maximum<strong id="maximum">—</strong></div>
-        <div class="stat">Average<strong id="average">—</strong></div>
-        <div class="stat">Most Common<strong id="mostCommon">—</strong></div>
-    </div>
-</div>
+<div class="card"><h2>🎥 Screen Recording</h2>
+<p>Choose the screen recording containing the scrolling scores.</p>
+<label class="file" for="videoInput">📁 Choose Screen Recording</label>
+<input id="videoInput" class="hidden" type="file" accept="video/*">
+<video id="videoPreview" controls playsinline preload="metadata" style="display:none"></video>
+<div class="grid"><button id="scan" class="blue" onclick="scan()">🔎 Scan Fast Scroll</button><button class="red" onclick="clearVideo()">Clear Video</button></div>
+<p id="ocrStatus" class="status">Ready to scan.</p><div class="progress"><div id="bar" class="bar"></div></div>
+<div id="results" class="box" style="margin-top:12px">No scan results yet.</div></div>
 
-<div class="card">
-    <h2>Sequence Chart</h2>
-    <canvas id="sequenceChart"></canvas>
-</div>
-
-<div class="card">
-    <h2>Advanced Statistics</h2>
-    <div class="stats">
-        <div class="stat">Median<strong id="median">—</strong></div>
-        <div class="stat">Mode<strong id="mode">—</strong></div>
-        <div class="stat">Range<strong id="range">—</strong></div>
-        <div class="stat">Standard Deviation<strong id="standardDeviation">—</strong></div>
-        <div class="stat">Variance<strong id="variance">—</strong></div>
-        <div class="stat">Q1<strong id="q1">—</strong></div>
-        <div class="stat">Q3<strong id="q3">—</strong></div>
-        <div class="stat">IQR<strong id="iqr">—</strong></div>
-    </div>
-</div>
-
-<div class="card">
-    <h2>Pattern Detection</h2>
-    <div class="result-box">
-        <p>Arithmetic Sequence: <strong id="arithmetic">—</strong></p>
-        <p>Geometric Sequence: <strong id="geometric">—</strong></p>
-        <p>Repeating Period: <strong id="period">—</strong></p>
-        <p>Longest Run: <strong id="longestRun">—</strong></p>
-        <p>Average Change: <strong id="averageChange">—</strong></p>
-        <p>IQR Outliers: <strong id="outliers">—</strong></p>
-    </div>
-</div>
-
-<div class="card">
-    <h2>🧠 Deep AI Analysis</h2>
-    <button class="ai" onclick="deepAnalysis()">Run Deep Analysis</button>
-    <div class="result-box" id="aiResult" style="margin-top:14px">Not run yet.</div>
-</div>
-
-<div class="card">
-    <h2>🎥 Screen Recording</h2>
-    <p>Upload a screen recording containing the scrolling football scores.</p>
-
-    <label class="file-label">
-        📁 Choose Screen Recording
-        <input
-            id="videoInput"
-            type="file"
-            accept="video/*"
-            onchange="previewVideo(event)"
-        >
-    </label>
-
-    <video id="videoPreview" controls style="display:none"></video>
-
-    <button class="primary" onclick="scanFastScroll()">🔎 Scan Fast Scroll</button>
-    <button class="clear" onclick="clearVideo()">Clear Video</button>
-
-    <p id="ocrStatus" class="result-box" style="margin-top:14px">Ready to scan.</p>
-
-    <div class="progress">
-        <div id="scanProgress" class="progress-bar"></div>
-    </div>
-
-    <div id="betSlipResults" class="result-box" style="margin-top:16px">
-        No scan results yet.
-    </div>
-</div>
-
-<div class="card">
-    <h2>⚠️ Accuracy</h2>
-    <p class="small">
-        OCR accuracy depends on resolution, motion blur, compression, font size
-        and scrolling speed. The scanner deliberately accepts football scores
-        only when they are associated with an FT Score reading, reducing false
-        detections from odds, game IDs and other numbers.
-    </p>
-</div>
-
+<div class="card"><h2>⚠️ Accuracy</h2><p class="small">OCR accuracy depends on resolution, motion blur, compression, font size and scrolling speed. The scanner samples multiple frames and removes duplicate readings. Always verify important extracted results against the original recording.</p></div>
 </div>
 
 <script>
-let sequenceChart = null;
-let ocrWorker = null;
-let currentNumbers = [];
+let chart=null,videoURL=null,worker=null,numbers=[];
+const $=x=>document.getElementById(x);
+const nums=s=>(s.match(/-?\d+(?:\.\d+)?/g)||[]).map(Number).filter(Number.isFinite);
 
-function parseNumbers(text) {
-    return text
-        .split(/[\s,;]+/)
-        .map(Number)
-        .filter(n => Number.isFinite(n));
+function analyze(){
+ numbers=nums($("dataInput").value); if(!numbers.length)return alert("Enter numbers first.");
+ const s=[...numbers].sort((a,b)=>a-b),mean=numbers.reduce((a,b)=>a+b,0)/numbers.length;
+ const med=s.length%2?s[(s.length-1)/2]:(s[s.length/2-1]+s[s.length/2])/2;
+ const f={};numbers.forEach(x=>f[x]=(f[x]||0)+1);const mf=Math.max(...Object.values(f));
+ const modes=Object.keys(f).filter(x=>f[x]===mf);
+ const variance=numbers.reduce((a,x)=>a+(x-mean)**2,0)/numbers.length;
+ $("points").textContent=numbers.length;$("unique").textContent=new Set(numbers).size;
+ $("min").textContent=Math.min(...numbers);$("max").textContent=Math.max(...numbers);
+ $("avg").textContent=mean.toFixed(4);$("median").textContent=med;$("mode").textContent=mf>1?modes.join(", "):"No mode";
+ $("sd").textContent=Math.sqrt(variance).toFixed(4);$("variance").textContent=variance.toFixed(4);
+ $("range").textContent=Math.max(...numbers)-Math.min(...numbers);
+ const d=[];for(let i=1;i<numbers.length;i++)d.push(numbers[i]-numbers[i-1]);
+ const ar=d.length&&d.every(x=>Math.abs(x-d[0])<1e-10);
+ let geo=numbers.length>1&&numbers[0]!==0,r=numbers.length>1?numbers[1]/numbers[0]:0;
+ if(geo)for(let i=2;i<numbers.length;i++)if(!numbers[i-1]||Math.abs(numbers[i]/numbers[i-1]-r)>1e-10)geo=false;
+ $("patterns").textContent="Arithmetic: "+(ar?"Yes (difference "+d[0]+")":"No")+"\nGeometric: "+(geo?"Yes (ratio "+r+")":"No")+"\nAverage change: "+(d.length?(d.reduce((a,b)=>a+b,0)/d.length).toFixed(4):"0");
+ if(chart)chart.destroy();chart=new Chart($("chart"),{type:"line",data:{labels:numbers.map((_,i)=>i+1),datasets:[{label:"Sequence",data:numbers,borderWidth:2,tension:.15,pointRadius:2}]},options:{responsive:true}});
 }
+function clearData(){$("dataInput").value="";numbers=[];$("patterns").textContent="No analysis yet.";$("deep").textContent="Not run yet."}
+function deep(){if(!numbers.length)return $("deep").textContent="Analyze data first.";const inc=numbers.every((x,i)=>i==0||x>=numbers[i-1]),dec=numbers.every((x,i)=>i==0||x<=numbers[i-1]);$("deep").textContent="Direction: "+(inc?"non-decreasing":dec?"non-increasing":"mixed")+"\nData points: "+numbers.length+"\nThe sequence has been checked for arithmetic/geometric behavior and statistical spread."}
 
-function analyzeData() {
-    const numbers = parseNumbers(document.getElementById("dataInput").value);
+$("fileInput").onchange=async e=>{let f=e.target.files[0];if(!f)return;$("uploadStatus").textContent="Reading "+f.name+"...";try{let b=await f.arrayBuffer(),w=XLSX.read(b,{type:"array"}),rows=XLSX.utils.sheet_to_json(w.Sheets[w.SheetNames[0]],{header:1});let a=[];rows.flat().forEach(v=>typeof v==="number"?a.push(v):typeof v==="string"&&a.push(...nums(v)));$("dataInput").value=a.join(", ");$("uploadStatus").textContent=a.length+" numeric value(s) imported.";if(a.length)analyze()}catch(e){$("uploadStatus").textContent="Could not read file."}};
 
-    if (!numbers.length) {
-        alert("Please enter some numbers.");
-        return;
-    }
-
-    currentNumbers = numbers;
-
-    const sorted = [...numbers].sort((a,b)=>a-b);
-    const counts = {};
-    numbers.forEach(n => counts[n] = (counts[n] || 0) + 1);
-
-    const maxFrequency = Math.max(...Object.values(counts));
-    const modes = Object.keys(counts)
-        .filter(k => counts[k] === maxFrequency)
-        .map(Number);
-
-    const sum = numbers.reduce((a,b)=>a+b,0);
-    const average = sum / numbers.length;
-
-    document.getElementById("dataPoints").textContent = numbers.length;
-    document.getElementById("uniqueValues").textContent = new Set(numbers).size;
-    document.getElementById("minimum").textContent = Math.min(...numbers);
-    document.getElementById("maximum").textContent = Math.max(...numbers);
-    document.getElementById("average").textContent = average.toFixed(4);
-    document.getElementById("mostCommon").textContent =
-        maxFrequency > 1 ? modes.join(", ") : "None";
-
-    const median = getMedian(sorted);
-    const q1 = getMedian(sorted.slice(0, Math.floor(sorted.length/2)));
-    const q3 = getMedian(
-        sorted.slice(Math.ceil(sorted.length/2))
-    );
-
-    const variance = numbers.reduce(
-        (acc,n)=>acc + Math.pow(n-average,2),0
-    ) / numbers.length;
-
-    document.getElementById("median").textContent = median;
-    document.getElementById("mode").textContent =
-        maxFrequency > 1 ? modes.join(", ") : "None";
-    document.getElementById("range").textContent =
-        Math.max(...numbers) - Math.min(...numbers);
-    document.getElementById("variance").textContent = variance.toFixed(4);
-    document.getElementById("standardDeviation").textContent =
-        Math.sqrt(variance).toFixed(4);
-    document.getElementById("q1").textContent = q1;
-    document.getElementById("q3").textContent = q3;
-    document.getElementById("iqr").textContent = (q3-q1).toFixed(4);
-
-    detectPatterns(numbers, sorted, q1, q3);
-    drawChart(numbers);
+$("videoInput").onchange=e=>{
+ const f=e.target.files[0],v=$("videoPreview"); if(videoURL)URL.revokeObjectURL(videoURL);
+ if(!f){v.style.display="none";return}
+ videoURL=URL.createObjectURL(f);v.src=videoURL;v.style.display="block";v.load();
+ v.onloadedmetadata=()=>{$("ocrStatus").textContent="Video ready: "+fmt(v.duration)+" • "+v.videoWidth+"×"+v.videoHeight};
+ v.onerror=()=>{$("ocrStatus").textContent="This video cannot be decoded by this browser."};
+};
+function clearVideo(){let v=$("videoPreview");$("videoInput").value="";if(videoURL)URL.revokeObjectURL(videoURL);videoURL=null;v.removeAttribute("src");v.load();v.style.display="none";$("ocrStatus").textContent="Ready to scan.";$("results").textContent="No scan results yet.";$("bar").style.width="0"}
+function fmt(t){return Math.floor(t/60)+":"+String(Math.floor(t%60)).padStart(2,"0")}
+function seek(v,t){return new Promise((res,rej)=>{let ok=()=>{v.removeEventListener("seeked",ok);res()},bad=()=>rej();v.addEventListener("seeked",ok,{once:true});v.addEventListener("error",bad,{once:true});v.currentTime=t})}
+async function getWorker(){if(worker)return worker;if(typeof Tesseract==="undefined")throw Error("OCR library did not load.");worker=await Tesseract.createWorker("eng",1,{logger:m=>{if(m.status==="recognizing text")$("bar").style.width=(m.progress*100)+"%"}});return worker}
+function prep(v){let c=document.createElement("canvas"),scale=Math.min(1,1280/v.videoWidth);c.width=Math.round(v.videoWidth*scale);c.height=Math.round(v.videoHeight*scale);let x=c.getContext("2d");x.drawImage(v,0,0,c.width,c.height);let im=x.getImageData(0,0,c.width,c.height),d=im.data;for(let i=0;i<d.length;i+=4){let g=.299*d[i]+.587*d[i+1]+.114*d[i+2];g=Math.max(0,Math.min(255,(g-128)*1.65+128));d[i]=d[i+1]=d[i+2]=g}x.putImageData(im,0,0);return c}
+function pairs(text){let lines=text.replace(/\r/g,"").split("\n").map(x=>x.trim()).filter(Boolean),out=[],re=/\b(\d{1,2})\s*[-:]\s*(\d{1,2})\b/;lines.forEach((l,i)=>{let m=l.match(re);if(!m)return;let p=lines[i-1]||"",n=lines[i+1]||"",team=!/\d/.test(p)?p:!/\d/.test(n)?n:"Unknown team";out.push({team:team.replace(/[^A-Za-zÀ-ÿ0-9 &'().-]/g,"").trim(),score:m[1]+"-"+m[2]})});return out}
+async function scan(){
+ let v=$("videoPreview");if(!v.src||!Number.isFinite(v.duration))return $("ocrStatus").textContent="Please choose a screen recording first.";
+ $("scan").disabled=true;$("results").textContent="";$("bar").style.width="0";
+ try{let w=await getWorker(),step=.45,total=Math.min(220,Math.ceil(v.duration/step)),seen=new Set(),out=[];
+ for(let i=0;i<total;i++){let t=Math.min(v.duration-.05,i*step);await seek(v,t);let {data:{text}}=await w.recognize(prep(v));for(let p of pairs(text)){let k=(p.team+"|"+p.score).toLowerCase();if(!seen.has(k)){seen.add(k);out.push({t,...p})}}$("ocrStatus").textContent="Scanning "+(i+1)+" / "+total+" • "+fmt(t);$("bar").style.width=((i+1)/total*100)+"%"}
+ if(!out.length)$("results").textContent="No score pairs detected. Try a clearer/slower/higher-resolution recording.";
+ else $("results").innerHTML="<table><tr><th>Time</th><th>Team</th><th>Score</th></tr>"+out.map(x=>"<tr><td>"+fmt(x.t)+"</td><td>"+esc(x.team)+"</td><td>"+x.score+"</td></tr>").join("")+"</table>";
+ $("ocrStatus").textContent="Scan complete. "+out.length+" unique score reading(s) detected."
+ }catch(e){console.error(e);$("ocrStatus").textContent="OCR failed: "+e.message}finally{$("scan").disabled=false}
 }
-
-function getMedian(arr) {
-    if (!arr.length) return "—";
-    const mid = Math.floor(arr.length/2);
-    return arr.length % 2
-        ? arr[mid]
-        : ((arr[mid-1] + arr[mid]) / 2);
-}
-
-function detectPatterns(numbers, sorted, q1, q3) {
-    if (numbers.length < 2) {
-        document.getElementById("arithmetic").textContent = "Insufficient data";
-        return;
-    }
-
-    const differences = [];
-    for (let i=1;i<numbers.length;i++) {
-        differences.push(numbers[i]-numbers[i-1]);
-    }
-
-    const arithmetic = differences.every(d =>
-        Math.abs(d-differences[0]) < 1e-10
-    );
-
-    let geometric = numbers.every((n,i) => {
-        if (i===0) return true;
-        if (numbers[i-1] === 0) return false;
-        return Math.abs(n/numbers[i-1] - numbers[1]/numbers[0]) < 1e-10;
-    });
-
-    document.getElementById("arithmetic").textContent =
-        arithmetic ? "Yes" : "No";
-    document.getElementById("geometric").textContent =
-        geometric ? "Yes" : "No";
-
-    let period = "None";
-    for (let p=1;p<=Math.floor(numbers.length/2);p++) {
-        let works = true;
-        for (let i=p;i<numbers.length;i++) {
-            if (numbers[i] !== numbers[i-p]) {
-                works = false;
-                break;
-            }
-        }
-        if (works) {
-            period = p;
-            break;
-        }
-    }
-    document.getElementById("period").textContent = period;
-
-    let longest = 1;
-    let current = 1;
-    for (let i=1;i<numbers.length;i++) {
-        if (numbers[i] === numbers[i-1]) current++;
-        else current = 1;
-        longest = Math.max(longest,current);
-    }
-    document.getElementById("longestRun").textContent = longest;
-
-    const avgChange =
-        differences.reduce((a,b)=>a+b,0) / differences.length;
-    document.getElementById("averageChange").textContent =
-        avgChange.toFixed(4);
-
-    const lower = q1 - 1.5*(q3-q1);
-    const upper = q3 + 1.5*(q3-q1);
-    const outliers = numbers.filter(n => n < lower || n > upper);
-
-    document.getElementById("outliers").textContent =
-        outliers.length ? outliers.join(", ") : "None";
-}
-
-function drawChart(numbers) {
-    const canvas = document.getElementById("sequenceChart");
-
-    if (sequenceChart) sequenceChart.destroy();
-
-    sequenceChart = new Chart(canvas, {
-        type:"line",
-        data:{
-            labels:numbers.map((_,i)=>i+1),
-            datasets:[{
-                label:"Sequence",
-                data:numbers,
-                tension:.2
-            }]
-        },
-        options:{
-            responsive:true,
-            plugins:{
-                legend:{display:true}
-            }
-        }
-    });
-}
-
-function clearData() {
-    document.getElementById("dataInput").value = "";
-    currentNumbers = [];
-}
-
-function handleSpreadsheet(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    document.getElementById("uploadStatus").textContent =
-        "Reading " + file.name + "...";
-
-    const reader = new FileReader();
-
-    reader.onload = function(e) {
-        try {
-            const workbook = XLSX.read(e.target.result, {type:"array"});
-            const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            const rows = XLSX.utils.sheet_to_json(sheet, {header:1});
-
-            const numbers = [];
-
-            rows.forEach(row => {
-                row.forEach(value => {
-                    if (typeof value === "number" && Number.isFinite(value)) {
-                        numbers.push(value);
-                    } else if (typeof value === "string") {
-                        numbers.push(...parseNumbers(value));
-                    }
-                });
-            });
-
-            document.getElementById("dataInput").value =
-                numbers.join(", ");
-
-            document.getElementById("uploadStatus").textContent =
-                numbers.length + " number(s) loaded.";
-
-            analyzeData();
-        } catch (error) {
-            document.getElementById("uploadStatus").textContent =
-                "Could not read the file.";
-            console.error(error);
-        }
-    };
-
-    reader.readAsArrayBuffer(file);
-}
-
-function deepAnalysis() {
-    const box = document.getElementById("aiResult");
-
-    if (!currentNumbers.length) {
-        box.textContent = "Analyze some numerical data first.";
-        return;
-    }
-
-    const numbers = currentNumbers;
-    const avg =
-        numbers.reduce((a,b)=>a+b,0) / numbers.length;
-
-    const increasing =
-        numbers.every((n,i)=>i===0 || n>=numbers[i-1]);
-
-    const decreasing =
-        numbers.every((n,i)=>i===0 || n<=numbers[i-1]);
-
-    box.innerHTML = `
-        <strong>Deep Analysis Summary</strong>
-        <p>Data points: ${numbers.length}</p>
-        <p>Average: ${avg.toFixed(4)}</p>
-        <p>Trend: ${
-            increasing ? "Non-decreasing" :
-            decreasing ? "Non-increasing" :
-            "Mixed"
-        }</p>
-        <p>The detailed statistical values are shown above.</p>
-    `;
-}
-
-/* =========================
-   VIDEO / OCR SCANNER
-   ========================= */
-
-function previewVideo(event) {
-    const file = event.target.files[0];
-    const video = document.getElementById("videoPreview");
-    const status = document.getElementById("ocrStatus");
-
-    if (!file) return;
-
-    const oldUrl = video.dataset.objectUrl;
-    if (oldUrl) URL.revokeObjectURL(oldUrl);
-
-    const url = URL.createObjectURL(file);
-    video.dataset.objectUrl = url;
-    video.src = url;
-    video.style.display = "block";
-    video.load();
-
-    status.textContent = "Video loaded. Ready to scan.";
-    document.getElementById("betSlipResults").textContent =
-        "Video ready. Press Scan Fast Scroll.";
-    document.getElementById("scanProgress").style.width = "0%";
-}
-
-function clearVideo() {
-    const video = document.getElementById("videoPreview");
-    const input = document.getElementById("videoInput");
-
-    if (video.dataset.objectUrl) {
-        URL.revokeObjectURL(video.dataset.objectUrl);
-    }
-
-    video.pause();
-    video.removeAttribute("src");
-    video.load();
-    video.style.display = "none";
-
-    input.value = "";
-    document.getElementById("ocrStatus").textContent = "Ready to scan.";
-    document.getElementById("betSlipResults").textContent =
-        "No scan results yet.";
-    document.getElementById("scanProgress").style.width = "0%";
-}
-
-function formatVideoTime(seconds) {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-
-    return (
-        String(mins).padStart(2,"0") +
-        ":" +
-        String(secs).padStart(2,"0")
-    );
-}
-
-function extractFTScore(text, lines) {
-    const normalized = text
-        .replace(/[|]/g," ")
-        .replace(/\s+/g," ");
-
-    /*
-     * Primary rule:
-     * score must occur immediately after FT Score.
-     */
-    let match = normalized.match(
-        /FT\s*Score\b[^0-9]{0,15}(\d{1,2})\s*[:\-]\s*(\d{1,2})/i
-    );
-
-    if (match) {
-        return {
-            home:Number(match[1]),
-            away:Number(match[2])
-        };
-    }
-
-    /*
-     * OCR may put FT Score and score on separate lines.
-     */
-    for (let i=0;i<lines.length;i++) {
-        if (/FT\s*Score/i.test(lines[i])) {
-            for (let j=i;j<=Math.min(i+3,lines.length-1);j++) {
-                const scoreMatch = lines[j].match(
-                    /\b(\d{1,2})\s*[:\-]\s*(\d{1,2})\b/
-                );
-
-                if (scoreMatch) {
-                    return {
-                        home:Number(scoreMatch[1]),
-                        away:Number(scoreMatch[2])
-                    };
-                }
-            }
-        }
-    }
-
-    return null;
-}
-
-function findTeam(lines, scoreIndex) {
-    const start = Math.max(0, scoreIndex - 8);
-    const end = Math.min(lines.length, scoreIndex + 3);
-
-    const candidates = [];
-
-    for (let i=start;i<end;i++) {
-        const line = lines[i]
-            .replace(/[|]/g," ")
-            .replace(/\s+/g," ")
-            .trim();
-
-        const match = line.match(
-            /\b([A-Z]{2,5})\s+(?:VS|V)\s+([A-Z]{2,5})\b/i
-        );
-
-        if (match) {
-            candidates.push({
-                distance:Math.abs(i-scoreIndex),
-                team:
-                    match[1].toUpperCase() +
-                    " vs " +
-                    match[2].toUpperCase()
-            });
-        }
-    }
-
-    candidates.sort((a,b)=>a.distance-b.distance);
-
-    return candidates.length ? candidates[0].team : null;
-}
-
-function buildScanResultsTable(results) {
-    if (!results.length) {
-        return "No confirmed football scores found.";
-    }
-
-    let html = `
-        <table>
-            <thead>
-                <tr>
-                    <th>Time</th>
-                    <th>Team</th>
-                    <th>Score</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
-
-    results.forEach(result => {
-        html += `
-            <tr>
-                <td>${result.time}</td>
-                <td>${result.team}</td>
-                <td><strong>${result.score}</strong></td>
-            </tr>
-        `;
-    });
-
-    html += "</tbody></table>";
-    return html;
-}
-
-async function scanFastScroll() {
-    const video = document.getElementById("videoPreview");
-    const status = document.getElementById("ocrStatus");
-    const resultsBox = document.getElementById("betSlipResults");
-    const progress = document.getElementById("scanProgress");
-
-    if (!video || !video.src) {
-        status.textContent =
-            "Please upload a screen recording first.";
-        return;
-    }
-
-    if (typeof Tesseract === "undefined") {
-        status.textContent =
-            "OCR engine is not loaded. Check your internet connection.";
-        return;
-    }
-
-    try {
-        status.textContent =
-            "Preparing high-accuracy OCR scanner...";
-
-        if (!ocrWorker) {
-            ocrWorker = await Tesseract.createWorker("eng");
-        }
-
-        if (!video.duration || !isFinite(video.duration)) {
-            await new Promise(resolve => {
-                video.addEventListener("loadedmetadata", resolve, {
-                    once:true
-                });
-            });
-        }
-
-        const duration = video.duration;
-
-        if (!duration || !isFinite(duration)) {
-            throw new Error("Could not read video duration.");
-        }
-
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d", {
-            willReadFrequently:true
-        });
-
-        /*
-         * 0.45 seconds is a balance between speed and coverage.
-         */
-        const interval = 0.45;
-        const totalFrames = Math.max(
-            1,
-            Math.ceil(duration / interval)
-        );
-
-        const confirmed = new Map();
-
-        for (let frame=0; frame<totalFrames; frame++) {
-
-            const targetTime = Math.min(
-                frame * interval,
-                Math.max(0,duration - 0.05)
-            );
-
-            /*
-             * Seek to the exact video position.
-             */
-            await seekVideo(video,targetTime);
-
-            const actualTime = video.currentTime;
-
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-
-            if (!canvas.width || !canvas.height) {
-                throw new Error("Video frame size is unavailable.");
-            }
-
-            ctx.drawImage(
-                video,
-                0,
-                0,
-                canvas.width,
-                canvas.height
-            );
-
-            const percent =
-                ((frame+1)/totalFrames)*100;
-
-            progress.style.width =
-                percent.toFixed(1) + "%";
-
-            status.textContent =
-                "Scanning " +
-                (frame+1) +
-                " / " +
-                totalFrames +
-                " • " +
-                formatVideoTime(actualTime);
-
-            const result =
-                await ocrWorker.recognize(canvas);
-
-            const text = result.data.text || "";
-
-            const lines = text
-                .split(/\r?\n/)
-                .map(line =>
-                    line.replace(/\s+/g," ").trim()
-                )
-                .filter(Boolean);
-
-            const score = extractFTScore(text,lines);
-
-            /*
-             * Reject random / impossible values.
-             */
-            if (!score ||
-                score.home > 20 ||
-                score.away > 20) {
-                continue;
-            }
-
-            const scoreText =
-                score.home + "-" + score.away;
-
-            const scoreIndex =
-                lines.findIndex(line => /FT\s*Score/i.test(line));
-
-            const team = findTeam(
-                lines,
-                scoreIndex >= 0
-                    ? scoreIndex
-                    : Math.floor(lines.length/2)
-            );
-
-            /*
-             * Team + FT score are both required.
-             */
-            if (!team) continue;
-
-            const key =
-                team + "|" + scoreText;
-
-            if (!confirmed.has(key)) {
-                confirmed.set(key,{
-                    time:formatVideoTime(actualTime),
-                    team:team,
-                    score:scoreText
-                });
-
-                resultsBox.innerHTML =
-                    buildScanResultsTable(
-                        Array.from(confirmed.values())
-                    );
-            }
-        }
-
-        const finalResults =
-            Array.from(confirmed.values());
-
-        if (!finalResults.length) {
-            status.textContent =
-                "Scan complete, but no confirmed FT scores were detected.";
-
-            resultsBox.textContent =
-                "No confirmed football scores found.";
-            return;
-        }
-
-        resultsBox.innerHTML =
-            buildScanResultsTable(finalResults);
-
-        status.textContent =
-            "Scan complete. " +
-            finalResults.length +
-            " confirmed score reading(s) detected.";
-
-        progress.style.width = "100%";
-
-    } catch(error) {
-        console.error(error);
-
-        status.textContent =
-            "OCR scanning failed. " + error.message;
-
-        resultsBox.textContent =
-            "Scanner error: " + error.message;
-    }
-}
-
-function seekVideo(video,time) {
-    return new Promise(resolve => {
-        if (Math.abs(video.currentTime-time) < 0.02) {
-            resolve();
-            return;
-        }
-
-        const done = () => {
-            video.removeEventListener("seeked",done);
-            resolve();
-        };
-
-        video.addEventListener("seeked",done,{once:true});
-        video.currentTime = time;
-    });
-}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 </script>
-</body>
-</html>
+</body></html>
