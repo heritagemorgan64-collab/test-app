@@ -270,6 +270,60 @@ canvas{background:#fff;border-radius:12px;padding:8px}
     </div>
 </div>
 
+
+<div class="card" id="fullInsightsCard">
+    <h2>🔎 Full Sequence Insights</h2>
+    <p class="small">Additional descriptive tools built from the confirmed scanned scores. These summarize the data; they do not predict future match outcomes.</p>
+    <div class="stats">
+        <div class="stat">Most Frequent Transition<strong id="insightTransition">—</strong></div>
+        <div class="stat">Unusual Total Goals<strong id="insightAnomalyCount">—</strong></div>
+        <div class="stat">Sequence Change<strong id="insightTrend">—</strong></div>
+        <div class="stat">Score Diversity<strong id="insightDiversity">—</strong></div>
+    </div>
+    <div class="result-box" style="margin-top:14px">
+        <p><strong>Pattern explanation:</strong> <span id="patternExplanation">—</span></p>
+        <p><strong>Unusual observations:</strong> <span id="anomalyExplanation">—</span></p>
+        <p><strong>Automated interpretation:</strong> <span id="automatedInterpretation">—</span></p>
+    </div>
+    <button class="primary" onclick="exportAnalysisReport()">📄 Export Complete Analysis</button>
+</div>
+
+<div class="card">
+    <h2>📊 Score Distribution</h2>
+    <canvas id="scoreDistributionChart"></canvas>
+</div>
+
+<div class="card">
+    <h2>🔄 Score Transition Analysis</h2>
+    <canvas id="transitionChart"></canvas>
+    <div class="result-box" style="margin-top:14px">
+        <p><strong>Common transitions:</strong> <span id="transitionList">—</span></p>
+    </div>
+</div>
+
+<div class="card">
+    <h2>📈 Sequence Trend</h2>
+    <canvas id="sequenceTrendChart"></canvas>
+</div>
+
+<div class="card">
+    <h2>⚠️ Anomaly Detection</h2>
+    <div class="result-box">
+        <p><strong>Goal-total outliers:</strong> <span id="outlierList">—</span></p>
+        <p><strong>Largest step changes:</strong> <span id="largestChanges">—</span></p>
+    </div>
+</div>
+
+<div class="card">
+    <h2>👥 Team-by-Team Analysis</h2>
+    <div class="result-box" style="overflow-x:auto">
+        <table id="teamAnalysisTable">
+            <thead><tr><th>Team</th><th>Matches</th><th>GF</th><th>GA</th><th>W</th><th>D</th><th>L</th><th>Avg GF</th><th>Avg GA</th></tr></thead>
+            <tbody id="teamAnalysisBody"><tr><td colspan="9">No confirmed team data yet.</td></tr></tbody>
+        </table>
+    </div>
+</div>
+
 <div class="card">
     <h2>⚠️ Accuracy</h2>
     <p class="small">
@@ -284,6 +338,9 @@ canvas{background:#fff;border-radius:12px;padding:8px}
 
 <script>
 let sequenceChart = null;
+let scoreDistributionChart = null;
+let transitionChart = null;
+let sequenceTrendChart = null;
 let ocrWorker = null;
 let currentNumbers = [];
 window.extractedSequences = {home:[], away:[], total:[], diff:[], results:[]};
@@ -448,6 +505,8 @@ function drawChart(numbers) {
 }
 
 function clearData() {
+    [scoreDistributionChart, transitionChart, sequenceTrendChart].forEach(c=>{ if(c) c.destroy(); });
+    scoreDistributionChart=transitionChart=sequenceTrendChart=null;
     document.getElementById("dataInput").value = "";
     currentNumbers = [];
 }
@@ -1095,6 +1154,144 @@ function updateExtractedSequenceAnalysis(results) {
 
     window.extractedSequences = {home, away, total, diff, scorePairs, results: parsed};
     updateAdvancedExtractedAnalysis(parsed);
+    updateFullInsights(parsed);
+}
+
+
+function parseTeamPair(teamText){
+    if(!teamText) return null;
+    const m=String(teamText).match(/^\s*(.+?)\s+(?:vs|v|VS)\s+(.+?)\s*$/i);
+    return m ? {home:m[1].trim(), away:m[2].trim()} : null;
+}
+
+function getFrequencyEntries(values){
+    const c={}; values.forEach(v=>{c[v]=(c[v]||0)+1;});
+    return Object.entries(c).sort((a,b)=>b[1]-a[1] || String(a[0]).localeCompare(String(b[0]),undefined,{numeric:true}));
+}
+
+function calculateOutliers(values){
+    if(values.length<4) return [];
+    const sorted=[...values].sort((a,b)=>a-b);
+    const q1=medianOf(sorted.slice(0,Math.floor(sorted.length/2)));
+    const q3=medianOf(sorted.slice(Math.ceil(sorted.length/2)));
+    const iqr=q3-q1, low=q1-1.5*iqr, high=q3+1.5*iqr;
+    return values.map((v,i)=>({index:i+1,value:v})).filter(x=>x.value<low||x.value>high);
+}
+
+function buildAutomatedInterpretation(parsed,total,diff,scores){
+    const freq=getFrequencyEntries(scores);
+    const mode=freq[0];
+    const changes=total.slice(1).map((v,i)=>v-total[i]);
+    const ups=changes.filter(x=>x>0).length, downs=changes.filter(x=>x<0).length, same=changes.filter(x=>x===0).length;
+    const avg=averageOf(total);
+    const outliers=calculateOutliers(total);
+    const parts=[];
+    parts.push(`The scan contains ${parsed.length} confirmed score rows in sequence order.`);
+    if(mode) parts.push(`The most frequent exact score is ${mode[0]}, appearing ${mode[1]} time(s).`);
+    parts.push(`Average total goals per scanned match is ${avg.toFixed(2)}.`);
+    parts.push(`Across consecutive total-goal readings there are ${ups} increases, ${downs} decreases and ${same} unchanged steps.`);
+    if(outliers.length) parts.push(`${outliers.length} total-goal observation(s) fall outside the 1.5×IQR range and are flagged for review.`);
+    else parts.push(`No total-goal observation falls outside the 1.5×IQR range.`);
+    return parts.join(' ');
+}
+
+function updateFullInsights(parsed){
+    if(!parsed || !parsed.length) return;
+    const total=parsed.map(r=>r.scoreParts.home+r.scoreParts.away);
+    const diff=parsed.map(r=>r.scoreParts.home-r.scoreParts.away);
+    const scores=parsed.map(r=>r.score);
+    const outliers=calculateOutliers(total);
+    const changes=total.slice(1).map((v,i)=>({from:total[i],to:v,delta:v-total[i],index:i+2}));
+    const biggest=[...changes].sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta)).slice(0,5);
+    const transitions=mostCommonTransition(scores);
+    const transitionEntries=getFrequencyEntries(scores.slice(1).map((v,i)=>scores[i]+' → '+v)).slice(0,8);
+    const slopeText=trendDescription(total);
+    const diversity=new Set(scores).size;
+    const diversityPct=((diversity/scores.length)*100).toFixed(0);
+    document.getElementById('insightTransition').textContent=transitions?`${transitions.transition} (${transitions.count}×)`:'—';
+    document.getElementById('insightAnomalyCount').textContent=String(outliers.length);
+    document.getElementById('insightTrend').textContent=slopeText.replace(/\.$/,'');
+    document.getElementById('insightDiversity').textContent=`${diversity}/${scores.length} (${diversityPct}%)`;
+    document.getElementById('patternExplanation').textContent=`${sequencePattern(total)}. Exact scores contain ${diversity} distinct value(s) across ${scores.length} matches.`;
+    document.getElementById('anomalyExplanation').textContent=outliers.length?outliers.map(x=>`match ${x.index}: ${x.value} total goals`).join(', '):'No IQR outliers detected in total goals.';
+    document.getElementById('automatedInterpretation').textContent=buildAutomatedInterpretation(parsed,total,diff,scores);
+    document.getElementById('outlierList').textContent=outliers.length?outliers.map(x=>`#${x.index}=${x.value}`).join(', '):'None detected';
+    document.getElementById('largestChanges').textContent=biggest.length?biggest.map(x=>`#${x.index}: ${x.from}→${x.to} (${x.delta>=0?'+':''}${x.delta})`).join(', '):'None';
+    document.getElementById('transitionList').textContent=transitionEntries.length?transitionEntries.map(x=>`${x[0]} (${x[1]}×)`).join(', '):'Insufficient data';
+    drawScoreDistribution(scores);
+    drawTransitionChart(transitionEntries);
+    drawSequenceTrend(total);
+    buildTeamAnalysis(parsed);
+}
+
+function drawScoreDistribution(scores){
+    const entries=getFrequencyEntries(scores).slice(0,12);
+    const ctx=document.getElementById('scoreDistributionChart');
+    if(scoreDistributionChart) scoreDistributionChart.destroy();
+    scoreDistributionChart=new Chart(ctx,{type:'bar',data:{labels:entries.map(x=>x[0]),datasets:[{label:'Occurrences',data:entries.map(x=>x[1])}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,precision:0}}}});
+}
+
+function drawTransitionChart(entries){
+    const ctx=document.getElementById('transitionChart');
+    if(transitionChart) transitionChart.destroy();
+    if(!entries.length) return;
+    transitionChart=new Chart(ctx,{type:'bar',data:{labels:entries.map(x=>x[0]),datasets:[{label:'Occurrences',data:entries.map(x=>x[1])}]},options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,precision:0}}}});
+}
+
+function drawSequenceTrend(total){
+    const ctx=document.getElementById('sequenceTrendChart');
+    if(sequenceTrendChart) sequenceTrendChart.destroy();
+    sequenceTrendChart=new Chart(ctx,{type:'line',data:{labels:total.map((_,i)=>i+1),datasets:[{label:'Total goals',data:total,tension:.15}]},options:{responsive:true,plugins:{legend:{display:true}},scales:{y:{beginAtZero:true}}}});
+}
+
+function buildTeamAnalysis(parsed){
+    const teams={};
+    parsed.forEach(r=>{
+        const pair=parseTeamPair(r.team); if(!pair) return;
+        const h=r.scoreParts.home, a=r.scoreParts.away;
+        if(!teams[pair.home]) teams[pair.home]={m:0,gf:0,ga:0,w:0,d:0,l:0};
+        if(!teams[pair.away]) teams[pair.away]={m:0,gf:0,ga:0,w:0,d:0,l:0};
+        teams[pair.home].m++; teams[pair.home].gf+=h; teams[pair.home].ga+=a;
+        teams[pair.away].m++; teams[pair.away].gf+=a; teams[pair.away].ga+=h;
+        if(h>a){teams[pair.home].w++;teams[pair.away].l++;}
+        else if(h<a){teams[pair.home].l++;teams[pair.away].w++;}
+        else {teams[pair.home].d++;teams[pair.away].d++;}
+    });
+    const body=document.getElementById('teamAnalysisBody');
+    const rows=Object.entries(teams).sort((a,b)=>b[1].m-a[1].m||a[0].localeCompare(b[0]));
+    if(!rows.length){body.innerHTML='<tr><td colspan="9">Team names were not available in the confirmed OCR rows.</td></tr>';return;}
+    body.innerHTML=rows.map(([name,t])=>`<tr><td>${escapeHtml(name)}</td><td>${t.m}</td><td>${t.gf}</td><td>${t.ga}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td><td>${(t.gf/t.m).toFixed(2)}</td><td>${(t.ga/t.m).toFixed(2)}</td></tr>`).join('');
+}
+
+function escapeHtml(v){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+function exportAnalysisReport(){
+    const e=window.extractedSequences;
+    if(!e || !e.results || !e.results.length){alert('Scan confirmed scores first.');return;}
+    const lines=[];
+    lines.push('SEQUENCE AI ANALYZER - COMPLETE SCORE ANALYSIS');
+    lines.push('Generated: '+new Date().toLocaleString());
+    lines.push('');
+    lines.push('CONFIRMED MATCHES: '+e.results.length);
+    lines.push('');
+    lines.push('MATCH SEQUENCE');
+    e.results.forEach((r,i)=>lines.push(`${i+1}. ${r.team||'Unknown team'} — ${r.score} — OCR ${r.confidence||'—'}%`));
+    lines.push('');
+    lines.push('SCORE PAIRS: '+e.scorePairs.join(' → '));
+    lines.push('HOME GOALS: '+e.home.join(', '));
+    lines.push('AWAY GOALS: '+e.away.join(', '));
+    lines.push('TOTAL GOALS: '+e.total.join(', '));
+    lines.push('GOAL DIFFERENCES: '+e.diff.join(', '));
+    lines.push('');
+    lines.push('AUTOMATED INTERPRETATION: '+document.getElementById('automatedInterpretation').textContent);
+    lines.push('OUTLIERS: '+document.getElementById('outlierList').textContent);
+    lines.push('LARGEST CHANGES: '+document.getElementById('largestChanges').textContent);
+    lines.push('COMMON TRANSITIONS: '+document.getElementById('transitionList').textContent);
+    lines.push('');
+    lines.push('NOTE: This report describes the scanned dataset. It does not predict future match outcomes.');
+    const blob=new Blob([lines.join('\n')],{type:'text/plain'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='sequence-ai-analysis-report.txt'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 
 function analyzeExtractedSequence() {
