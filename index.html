@@ -247,6 +247,29 @@ canvas{background:#fff;border-radius:12px;padding:8px}
     <button class="analyze" onclick="analyzeExtractedSequence()">Analyze All Extracted Scores</button>
 </div>
 
+<div class="card" id="advancedExtractedCard">
+    <h2>🧠 Advanced Sequence Intelligence</h2>
+    <p class="small">Descriptive analysis of the exact score sequence and its numerical components. It does not predict match outcomes.</p>
+    <div class="stats">
+        <div class="stat">Unique Matches<strong id="advancedUniqueMatches">—</strong></div>
+        <div class="stat">Most Common Score<strong id="advancedModeScore">—</strong></div>
+        <div class="stat">Most Common Total<strong id="advancedModeTotal">—</strong></div>
+        <div class="stat">Longest Same-Score Run<strong id="advancedLongestRun">—</strong></div>
+        <div class="stat">Home Wins<strong id="advancedHomeWins">—</strong></div>
+        <div class="stat">Draws<strong id="advancedDraws">—</strong></div>
+        <div class="stat">Away Wins<strong id="advancedAwayWins">—</strong></div>
+        <div class="stat">Average Total Goals<strong id="advancedAvgTotal">—</strong></div>
+    </div>
+    <div class="result-box" style="margin-top:14px">
+        <p><strong>Data quality:</strong> <span id="advancedQuality">—</span></p>
+        <p><strong>Most common score transition:</strong> <span id="advancedTransition">—</span></p>
+        <p><strong>Total-goal distribution:</strong> <span id="advancedGoalBands">—</span></p>
+        <p><strong>Sequence direction:</strong> <span id="advancedTrend">—</span></p>
+        <p><strong>Repeated scores:</strong> <span id="advancedRepeatedScores">—</span></p>
+        <p><strong>Recent-vs-earlier total-goal change:</strong> <span id="advancedRecentChange">—</span></p>
+    </div>
+</div>
+
 <div class="card">
     <h2>⚠️ Accuracy</h2>
     <p class="small">
@@ -716,12 +739,13 @@ async function scanFastScroll() {
         /*
          * 0.45 seconds is a balance between speed and coverage.
          */
-        const interval = 0.45;
+        const interval = 0.35;
         const totalFrames = Math.max(
             1,
             Math.ceil(duration / interval)
         );
 
+        const candidatesByTeam = new Map();
         const confirmed = new Map();
 
         for (let frame=0; frame<totalFrames; frame++) {
@@ -813,27 +837,44 @@ async function scanFastScroll() {
              */
             if (!team) continue;
 
-            // One final-score row per match. This also removes repeated
-            // frames of the same match while scrolling.
+            // Keep multiple readings for the same match, then choose the
+            // strongest reading. This prevents an early low-quality OCR
+            // frame from permanently locking in a wrong score.
             const key = team;
+            if (!candidatesByTeam.has(key)) candidatesByTeam.set(key, []);
+            candidatesByTeam.get(key).push({
+                time:formatVideoTime(actualTime),
+                team:team,
+                score:scoreText,
+                confidence:Math.round(confidence)
+            });
 
-            if (!confirmed.has(key)) {
-                confirmed.set(key,{
-                    time:formatVideoTime(actualTime),
-                    team:team,
-                    score:scoreText,
-                    confidence:Math.round(confidence)
+            const bestByTeam = [];
+            for (const [teamKey, readings] of candidatesByTeam.entries()) {
+                const scoreGroups = {};
+                readings.forEach(r=>{
+                    if(!scoreGroups[r.score]) scoreGroups[r.score]=[];
+                    scoreGroups[r.score].push(r);
                 });
-
-                resultsBox.innerHTML =
-                    buildScanResultsTable(
-                        Array.from(confirmed.values())
-                    );
+                const ranked = Object.values(scoreGroups).sort((a,b)=>{
+                    const aVotes=a.length, bVotes=b.length;
+                    if(bVotes!==aVotes) return bVotes-aVotes;
+                    return Math.max(...b.map(x=>x.confidence))-Math.max(...a.map(x=>x.confidence));
+                });
+                const group=ranked[0];
+                const best=group.slice().sort((a,b)=>b.confidence-a.confidence)[0];
+                bestByTeam.push({...best, confidence:Math.round(averageOf(group.map(x=>x.confidence)))});
             }
+            confirmed.clear();
+            bestByTeam.forEach(r=>confirmed.set(r.team,r));
+            resultsBox.innerHTML=buildScanResultsTable(Array.from(confirmed.values()));
         }
 
         const finalResults =
-            Array.from(confirmed.values());
+            Array.from(confirmed.values()).sort((a,b)=>{
+                const [am,as]=a.time.split(":").map(Number), [bm,bs]=b.time.split(":").map(Number);
+                return (am*60+as)-(bm*60+bs);
+            });
 
         if (!finalResults.length) {
             status.textContent =
@@ -938,6 +979,97 @@ function analyzeScoreSet(numbers) {
     return `min ${min}, max ${max}, average ${avg.toFixed(2)}; ${ups} increases, ${downs} decreases, ${same} unchanged`;
 }
 
+function medianOf(numbers) {
+    if (!numbers.length) return 0;
+    const a = [...numbers].sort((x,y)=>x-y);
+    const m = Math.floor(a.length/2);
+    return a.length % 2 ? a[m] : (a[m-1]+a[m])/2;
+}
+
+function modeWithCount(values) {
+    if (!values.length) return {value:null,count:0};
+    const counts = {};
+    values.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
+    return Object.entries(counts).sort((a,b)=>b[1]-a[1] || Number(a[0])-Number(b[0]))[0]
+        ? {value:Object.entries(counts).sort((a,b)=>b[1]-a[1] || Number(a[0])-Number(b[0]))[0][0], count:Object.entries(counts).sort((a,b)=>b[1]-a[1] || Number(a[0])-Number(b[0]))[0][1]}
+        : {value:null,count:0};
+}
+
+function mostCommonTransition(values) {
+    if (values.length < 2) return null;
+    const counts = {};
+    for (let i=1;i<values.length;i++) {
+        const key = values[i-1] + " → " + values[i];
+        counts[key] = (counts[key] || 0) + 1;
+    }
+    const best = Object.entries(counts).sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0],undefined,{numeric:true}))[0];
+    return best ? {transition:best[0], count:best[1]} : null;
+}
+
+function longestRun(values) {
+    if (!values.length) return {value:null,count:0};
+    let bestValue=values[0], bestCount=1, currentValue=values[0], currentCount=1;
+    for (let i=1;i<values.length;i++) {
+        if (values[i] === currentValue) currentCount++;
+        else { currentValue=values[i]; currentCount=1; }
+        if (currentCount > bestCount) { bestCount=currentCount; bestValue=currentValue; }
+    }
+    return {value:bestValue,count:bestCount};
+}
+
+function trendDescription(values) {
+    if (values.length < 2) return "Insufficient data";
+    const n=values.length;
+    const xMean=(n-1)/2;
+    const yMean=averageOf(values);
+    let num=0, den=0;
+    for(let i=0;i<n;i++){ num += (i-xMean)*(values[i]-yMean); den += (i-xMean)*(i-xMean); }
+    const slope=den ? num/den : 0;
+    if (Math.abs(slope) < 0.03) return `Overall sequence is broadly stable (slope ${slope.toFixed(3)}).`;
+    return slope > 0 ? `Overall sequence trends upward (slope ${slope.toFixed(3)}).` : `Overall sequence trends downward (slope ${slope.toFixed(3)}).`;
+}
+
+function updateAdvancedExtractedAnalysis(results) {
+    const parsed = results.map(r=>({ ...r, scoreParts:parseScoreText(r.score) })).filter(r=>r.scoreParts);
+    if (!parsed.length) return;
+    const home=parsed.map(r=>r.scoreParts.home), away=parsed.map(r=>r.scoreParts.away);
+    const total=parsed.map(r=>r.scoreParts.home+r.scoreParts.away);
+    const diff=parsed.map(r=>r.scoreParts.home-r.scoreParts.away);
+    const scores=parsed.map(r=>r.score);
+    const modeScore=modeWithCount(scores), modeTotal=modeWithCount(total), run=longestRun(scores), transition=mostCommonTransition(scores);
+    const uniqueTeams=new Set(parsed.map(r=>r.team)).size;
+    const homeWins=diff.filter(x=>x>0).length, draws=diff.filter(x=>x===0).length, awayWins=diff.filter(x=>x<0).length;
+    const bands={"0":0,"1":0,"2":0,"3":0,"4":0,"5+":0};
+    total.forEach(v=>{ if(v<=4) bands[String(v)]++; else bands["5+"]++; });
+    const repeated=Object.entries(Object.fromEntries(scores.map(s=>[s,(scores.filter(x=>x===s).length)])))
+        .filter(([,c])=>c>1).sort((a,b)=>b[1]-a[1]).map(([s,c])=>`${s} (${c}×)`).join(", ") || "No repeated exact scores";
+    let recentChange="Not enough matches";
+    if(total.length>=10){
+        const k=Math.min(5,Math.floor(total.length/2));
+        const earlier=averageOf(total.slice(0,k)), recent=averageOf(total.slice(-k));
+        const delta=recent-earlier;
+        recentChange=`last ${k}: ${recent.toFixed(2)} vs first ${k}: ${earlier.toFixed(2)} (${delta>=0?"+":""}${delta.toFixed(2)})`;
+    }
+    const confidenceValues=parsed.map(r=>Number(r.confidence||0)).filter(x=>x>0);
+    const avgConf=confidenceValues.length?averageOf(confidenceValues):0;
+    const quality=`${parsed.length} confirmed matches; ${uniqueTeams} unique match rows; average OCR confidence ${avgConf.toFixed(0)}%`;
+
+    document.getElementById("advancedUniqueMatches").textContent=uniqueTeams;
+    document.getElementById("advancedModeScore").textContent=modeScore.value ? `${modeScore.value} (${modeScore.count}×)` : "—";
+    document.getElementById("advancedModeTotal").textContent=modeTotal.value !== null ? `${modeTotal.value} goals (${modeTotal.count}×)` : "—";
+    document.getElementById("advancedLongestRun").textContent=run.count>1 ? `${run.value} × ${run.count}` : "No repeat run";
+    document.getElementById("advancedHomeWins").textContent=homeWins;
+    document.getElementById("advancedDraws").textContent=draws;
+    document.getElementById("advancedAwayWins").textContent=awayWins;
+    document.getElementById("advancedAvgTotal").textContent=averageOf(total).toFixed(2);
+    document.getElementById("advancedQuality").textContent=quality;
+    document.getElementById("advancedTransition").textContent=transition ? `${transition.transition} (${transition.count}×)` : "Insufficient data";
+    document.getElementById("advancedGoalBands").textContent=`0=${bands["0"]}, 1=${bands["1"]}, 2=${bands["2"]}, 3=${bands["3"]}, 4=${bands["4"]}, 5+=${bands["5+"]}`;
+    document.getElementById("advancedTrend").textContent=trendDescription(total);
+    document.getElementById("advancedRepeatedScores").textContent=repeated;
+    document.getElementById("advancedRecentChange").textContent=recentChange;
+}
+
 function updateExtractedSequenceAnalysis(results) {
     const parsed = results.map(r=>({ ...r, scoreParts: parseScoreText(r.score) })).filter(r=>r.scoreParts);
     const home = parsed.map(r=>r.scoreParts.home);
@@ -962,6 +1094,7 @@ function updateExtractedSequenceAnalysis(results) {
     document.getElementById("goalDiffPattern").textContent = diff.length ? `${sequencePattern(diff)}; ${analyzeScoreSet(diff)}` : "—";
 
     window.extractedSequences = {home, away, total, diff, scorePairs, results: parsed};
+    updateAdvancedExtractedAnalysis(parsed);
 }
 
 function analyzeExtractedSequence() {
