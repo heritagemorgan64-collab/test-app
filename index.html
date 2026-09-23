@@ -233,13 +233,18 @@ canvas{background:#fff;border-radius:12px;padding:8px}
         <div class="stat">Total Goals<strong id="extractedTotalGoals">—</strong></div>
     </div>
     <div class="result-box" style="margin-top:14px">
+        <p><strong>Score-pair sequence:</strong> <span id="scorePairSequence">—</span></p>
         <p><strong>Home-goal sequence:</strong> <span id="homeGoalSequence">—</span></p>
         <p><strong>Away-goal sequence:</strong> <span id="awayGoalSequence">—</span></p>
         <p><strong>Total-goal sequence:</strong> <span id="totalGoalSequence">—</span></p>
         <p><strong>Goal-difference sequence:</strong> <span id="goalDiffSequence">—</span></p>
-        <p><strong>Detected pattern:</strong> <span id="extractedPattern">—</span></p>
+        <p><strong>Exact score frequencies:</strong> <span id="scoreFrequency">—</span></p>
+        <p><strong>Home-goal pattern:</strong> <span id="homeGoalPattern">—</span></p>
+        <p><strong>Away-goal pattern:</strong> <span id="awayGoalPattern">—</span></p>
+        <p><strong>Total-goal pattern:</strong> <span id="extractedPattern">—</span></p>
+        <p><strong>Goal-difference pattern:</strong> <span id="goalDiffPattern">—</span></p>
     </div>
-    <button class="analyze" onclick="analyzeExtractedSequence()">Analyze Extracted Sequence</button>
+    <button class="analyze" onclick="analyzeExtractedSequence()">Analyze All Extracted Scores</button>
 </div>
 
 <div class="card">
@@ -908,24 +913,55 @@ function sequencePattern(numbers) {
     return `Mixed sequence; average change ${avgChange.toFixed(4)}`;
 }
 
+function formatScoreFrequencies(results) {
+    const counts = {};
+    results.forEach(r => { counts[r.score] = (counts[r.score] || 0) + 1; });
+    return Object.entries(counts)
+        .sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0], undefined, {numeric:true}))
+        .map(([score,count])=>`${score} (${count}×)`)
+        .join(", ");
+}
+
+function averageOf(numbers) {
+    return numbers.length ? numbers.reduce((a,b)=>a+b,0) / numbers.length : 0;
+}
+
+function analyzeScoreSet(numbers) {
+    if (!numbers.length) return "No data";
+    const min = Math.min(...numbers);
+    const max = Math.max(...numbers);
+    const avg = averageOf(numbers);
+    const changes = numbers.length > 1 ? numbers.slice(1).map((n,i)=>n-numbers[i]) : [];
+    const ups = changes.filter(x=>x>0).length;
+    const downs = changes.filter(x=>x<0).length;
+    const same = changes.filter(x=>x===0).length;
+    return `min ${min}, max ${max}, average ${avg.toFixed(2)}; ${ups} increases, ${downs} decreases, ${same} unchanged`;
+}
+
 function updateExtractedSequenceAnalysis(results) {
     const parsed = results.map(r=>({ ...r, scoreParts: parseScoreText(r.score) })).filter(r=>r.scoreParts);
     const home = parsed.map(r=>r.scoreParts.home);
     const away = parsed.map(r=>r.scoreParts.away);
     const total = parsed.map(r=>r.scoreParts.home + r.scoreParts.away);
     const diff = parsed.map(r=>r.scoreParts.home - r.scoreParts.away);
+    const scorePairs = parsed.map(r=>r.score);
 
     document.getElementById("extractedMatches").textContent = parsed.length || "0";
     document.getElementById("extractedHomeGoals").textContent = home.length ? home.reduce((a,b)=>a+b,0) : "0";
     document.getElementById("extractedAwayGoals").textContent = away.length ? away.reduce((a,b)=>a+b,0) : "0";
     document.getElementById("extractedTotalGoals").textContent = total.length ? total.reduce((a,b)=>a+b,0) : "0";
+    document.getElementById("scorePairSequence").textContent = scorePairs.length ? scorePairs.join(" → ") : "—";
     document.getElementById("homeGoalSequence").textContent = home.length ? home.join(", ") : "—";
     document.getElementById("awayGoalSequence").textContent = away.length ? away.join(", ") : "—";
     document.getElementById("totalGoalSequence").textContent = total.length ? total.join(", ") : "—";
     document.getElementById("goalDiffSequence").textContent = diff.length ? diff.join(", ") : "—";
-    document.getElementById("extractedPattern").textContent = total.length ? sequencePattern(total) : "No confirmed scores";
+    document.getElementById("scoreFrequency").textContent = parsed.length ? formatScoreFrequencies(parsed) : "—";
+    document.getElementById("homeGoalPattern").textContent = home.length ? `${sequencePattern(home)}; ${analyzeScoreSet(home)}` : "—";
+    document.getElementById("awayGoalPattern").textContent = away.length ? `${sequencePattern(away)}; ${analyzeScoreSet(away)}` : "—";
+    document.getElementById("extractedPattern").textContent = total.length ? `${sequencePattern(total)}; ${analyzeScoreSet(total)}` : "No confirmed scores";
+    document.getElementById("goalDiffPattern").textContent = diff.length ? `${sequencePattern(diff)}; ${analyzeScoreSet(diff)}` : "—";
 
-    window.extractedSequences = {home, away, total, diff, results: parsed};
+    window.extractedSequences = {home, away, total, diff, scorePairs, results: parsed};
 }
 
 function analyzeExtractedSequence() {
@@ -934,15 +970,44 @@ function analyzeExtractedSequence() {
         return;
     }
 
-    const sequence = window.extractedSequences.total;
-    document.getElementById("dataInput").value = sequence.join(", ");
+    const {home, away, total, diff, scorePairs, results} = window.extractedSequences;
+
+    // Keep the main analyzer's numerical input as total goals so the existing
+    // statistics/chart remain compatible, while the report below analyzes
+    // every score component separately.
+    document.getElementById("dataInput").value = total.join(", ");
     analyzeData();
+
+    const homeAvg = averageOf(home).toFixed(2);
+    const awayAvg = averageOf(away).toFixed(2);
+    const totalAvg = averageOf(total).toFixed(2);
+    const diffAvg = averageOf(diff).toFixed(2);
+    const homeWins = diff.filter(x=>x>0).length;
+    const draws = diff.filter(x=>x===0).length;
+    const awayWins = diff.filter(x=>x<0).length;
+
     document.getElementById("aiResult").innerHTML = `
-        <strong>Extracted Score Sequence</strong>
-        <p>The analyzer is now using the total-goals sequence from the scanned matches.</p>
-        <p><strong>Sequence:</strong> ${sequence.join(", ")}</p>
-        <p><strong>Pattern:</strong> ${sequencePattern(sequence)}</p>
-        <p>Use the statistics, pattern detection and chart above for the full analysis.</p>
+        <strong>Deep Analysis of All Scanned Scores</strong>
+        <p><strong>Matches analyzed:</strong> ${results.length}</p>
+        <p><strong>Exact score sequence:</strong> ${scorePairs.join(" → ")}</p>
+        <p><strong>Home goals:</strong> ${home.join(", ")}</p>
+        <p><strong>Away goals:</strong> ${away.join(", ")}</p>
+        <p><strong>Total goals:</strong> ${total.join(", ")}</p>
+        <p><strong>Goal differences:</strong> ${diff.join(", ")}</p>
+        <hr>
+        <p><strong>Home-goal analysis:</strong> ${analyzeScoreSet(home)}</p>
+        <p><strong>Away-goal analysis:</strong> ${analyzeScoreSet(away)}</p>
+        <p><strong>Total-goal analysis:</strong> ${analyzeScoreSet(total)}</p>
+        <p><strong>Goal-difference analysis:</strong> ${analyzeScoreSet(diff)}</p>
+        <p><strong>Average home goals:</strong> ${homeAvg} &nbsp; <strong>Average away goals:</strong> ${awayAvg}</p>
+        <p><strong>Average total goals:</strong> ${totalAvg} &nbsp; <strong>Average goal difference:</strong> ${diffAvg}</p>
+        <p><strong>Result split:</strong> ${homeWins} home win(s), ${draws} draw(s), ${awayWins} away win(s).</p>
+        <p><strong>Home pattern:</strong> ${sequencePattern(home)}</p>
+        <p><strong>Away pattern:</strong> ${sequencePattern(away)}</p>
+        <p><strong>Total-goal pattern:</strong> ${sequencePattern(total)}</p>
+        <p><strong>Goal-difference pattern:</strong> ${sequencePattern(diff)}</p>
+        <p><strong>Most frequent exact scores:</strong> ${formatScoreFrequencies(results) || "None"}</p>
+        <p class="small">The chart and standard statistics above use the total-goal sequence, while this report retains and analyzes the full home/away score information.</p>
     `;
     document.getElementById("dataInput").scrollIntoView({behavior:"smooth",block:"center"});
 }
