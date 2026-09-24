@@ -271,6 +271,28 @@ canvas{background:#fff;border-radius:12px;padding:8px}
 </div>
 
 
+<div class="card" id="tenMatchFormulaCard">
+    <h2>🔟 10-Match Pattern Formula</h2>
+    <p class="small">Because one betting slip contains 10 matches, the confirmed scan is also divided into 10-match blocks. This section extracts recurring descriptive patterns from each block. It does not guarantee or predict future results.</p>
+    <div class="stats">
+        <div class="stat">Complete 10-Match Blocks<strong id="tenBlockCount">—</strong></div>
+        <div class="stat">Average Goals / Block<strong id="tenBlockAvgGoals">—</strong></div>
+        <div class="stat">Most Common W-D-L<strong id="tenBlockWDL">—</strong></div>
+        <div class="stat">Recurring Rules<strong id="tenRecurringCount">—</strong></div>
+    </div>
+    <div class="result-box" style="margin-top:14px">
+        <p><strong>Derived 10-match formula:</strong> <span id="tenMatchFormula">—</span></p>
+        <p><strong>Recurring pattern:</strong> <span id="tenRecurringPattern">—</span></p>
+        <p><strong>Block comparison:</strong> <span id="tenBlockComparison">—</span></p>
+    </div>
+    <div class="result-box" style="margin-top:14px;overflow-x:auto">
+        <table id="tenMatchTable">
+            <thead><tr><th>Block</th><th>Matches</th><th>W-D-L</th><th>Avg Total</th><th>≥2 Goals</th><th>Most Common Score</th><th>Score Diversity</th></tr></thead>
+            <tbody id="tenMatchBody"><tr><td colspan="7">No confirmed scores yet.</td></tr></tbody>
+        </table>
+    </div>
+</div>
+
 <div class="card" id="fullInsightsCard">
     <h2>🔎 Full Sequence Insights</h2>
     <p class="small">Additional descriptive tools built from the confirmed scanned scores. These summarize the data; they do not predict future match outcomes.</p>
@@ -1182,6 +1204,94 @@ function updateAdvancedExtractedAnalysis(results) {
     document.getElementById("advancedRecentChange").textContent=recentChange;
 }
 
+
+function updateTenMatchFormula(parsed){
+    const body=document.getElementById('tenMatchBody');
+    if(!body) return;
+    if(!parsed || parsed.length<10){
+        document.getElementById('tenBlockCount').textContent='0';
+        document.getElementById('tenBlockAvgGoals').textContent='Need 10 matches';
+        document.getElementById('tenBlockWDL').textContent='—';
+        document.getElementById('tenRecurringCount').textContent='0';
+        document.getElementById('tenMatchFormula').textContent='Scan at least 10 confirmed matches to build a 10-match pattern.';
+        document.getElementById('tenRecurringPattern').textContent='—';
+        document.getElementById('tenBlockComparison').textContent='—';
+        body.innerHTML='<tr><td colspan="7">At least 10 confirmed matches are required.</td></tr>';
+        return;
+    }
+
+    const blocks=[];
+    for(let i=0;i<parsed.length;i+=10){
+        const items=parsed.slice(i,i+10);
+        if(items.length<10) break;
+        const totals=items.map(r=>r.scoreParts.home+r.scoreParts.away);
+        const diffs=items.map(r=>r.scoreParts.home-r.scoreParts.away);
+        const scores=items.map(r=>r.score);
+        const w=diffs.filter(x=>x>0).length, d=diffs.filter(x=>x===0).length, l=diffs.filter(x=>x<0).length;
+        const ge2=totals.filter(x=>x>=2).length;
+        const ge3=totals.filter(x=>x>=3).length;
+        const avg=averageOf(totals);
+        const mode=modeWithCount(scores);
+        const diversity=new Set(scores).size;
+        const odd=totals.filter(x=>x%2!==0).length;
+        blocks.push({index:blocks.length+1,start:i+1,end:i+10,items,totals,diffs,scores,w,d,l,ge2,ge3,avg,mode,diversity,odd});
+    }
+
+    const complete=blocks.length;
+    const avgBlockGoals=averageOf(blocks.map(b=>b.avg));
+    const wdlFreq=getFrequencyEntries(blocks.map(b=>`${b.w}-${b.d}-${b.l}`));
+    const mostWDL=wdlFreq[0] || null;
+
+    // Recurring descriptive rules across complete 10-match blocks.
+    const rules=[];
+    const countRule=(label,predicate)=>{
+        const count=blocks.filter(predicate).length;
+        if(count>=2 && count===blocks.length) rules.push(`${label} in all ${blocks.length} blocks`);
+        else if(count>=2) rules.push(`${label} in ${count}/${blocks.length} blocks`);
+        return count;
+    };
+    countRule('Average total goals ≥ 2.00',b=>b.avg>=2);
+    countRule('At least 6/10 matches had ≥2 total goals',b=>b.ge2>=6);
+    countRule('At least 3/10 matches had ≥3 total goals',b=>b.ge3>=3);
+    countRule('At least 2 draws',b=>b.d>=2);
+    countRule('At least 4 home wins',b=>b.w>=4);
+    countRule('At least 4 away wins',b=>b.l>=4);
+    countRule('A repeated exact score occurred',b=>getFrequencyEntries(b.scores).some(x=>x[1]>1));
+
+    const stableScore=blocks.map(b=>b.mode.value).filter(Boolean);
+    const scoreFreq=getFrequencyEntries(stableScore);
+    const recurringScore=scoreFreq[0] || null;
+    const recurringText=[];
+    if(mostWDL) recurringText.push(`most common W-D-L pattern is ${mostWDL[0]} (${mostWDL[1]}/${complete} blocks)`);
+    if(recurringScore) recurringText.push(`block-level most common score is ${recurringScore[0]} (${recurringScore[1]}/${complete} blocks)`);
+    if(rules.length) recurringText.push(rules.join('; '));
+
+    const formulaParts=[];
+    formulaParts.push(`W-D-L ${mostWDL?mostWDL[0]:'variable'}`);
+    formulaParts.push(`avg total ${avgBlockGoals.toFixed(2)}`);
+    const avgGe2=averageOf(blocks.map(b=>b.ge2));
+    const avgGe3=averageOf(blocks.map(b=>b.ge3));
+    formulaParts.push(`≥2 goals ${avgGe2.toFixed(1)}/10`);
+    formulaParts.push(`≥3 goals ${avgGe3.toFixed(1)}/10`);
+    if(recurringScore) formulaParts.push(`common score ${recurringScore[0]}`);
+
+    document.getElementById('tenBlockCount').textContent=String(complete);
+    document.getElementById('tenBlockAvgGoals').textContent=avgBlockGoals.toFixed(2);
+    document.getElementById('tenBlockWDL').textContent=mostWDL?`${mostWDL[0]} (${mostWDL[1]}×)`:'Variable';
+    document.getElementById('tenRecurringCount').textContent=String(rules.length);
+    document.getElementById('tenMatchFormula').textContent=formulaParts.join(' | ');
+    document.getElementById('tenRecurringPattern').textContent=recurringText.length?recurringText.join('. ')+'.':'No recurring rule appears in at least 2 complete blocks yet.';
+    document.getElementById('tenBlockComparison').textContent=blocks.map(b=>`Block ${b.index}: avg ${b.avg.toFixed(2)}, W-D-L ${b.w}-${b.d}-${b.l}, ≥2=${b.ge2}/10`).join(' • ');
+
+    body.innerHTML=blocks.map(b=>`<tr>
+        <td>${b.index}</td><td>${b.items.length}</td><td>${b.w}-${b.d}-${b.l}</td>
+        <td>${b.avg.toFixed(2)}</td><td>${b.ge2}/10</td>
+        <td>${b.mode.value?`${b.mode.value} (${b.mode.count}×)`:'—'}</td><td>${b.diversity}/10</td>
+    </tr>`).join('');
+
+    window.tenMatchAnalysis={blocks,formula:formulaParts.join(' | '),rules};
+}
+
 function updateExtractedSequenceAnalysis(results) {
     const parsed = results.map(r=>({ ...r, scoreParts: parseScoreText(r.score) })).filter(r=>r.scoreParts);
     const home = parsed.map(r=>r.scoreParts.home);
@@ -1276,6 +1386,7 @@ function updateFullInsights(parsed){
     drawSequenceTrend(total);
     drawRollingTrend(total);
     buildTeamAnalysis(parsed);
+    updateTenMatchFormula(parsed);
 }
 
 function drawScoreDistribution(scores){
@@ -1368,6 +1479,9 @@ function exportAnalysisReport(){
     lines.push('OUTLIERS: '+document.getElementById('outlierList').textContent);
     lines.push('LARGEST CHANGES: '+document.getElementById('largestChanges').textContent);
     lines.push('COMMON TRANSITIONS: '+document.getElementById('transitionList').textContent);
+    lines.push('10-MATCH FORMULA: '+document.getElementById('tenMatchFormula').textContent);
+    lines.push('10-MATCH RECURRING PATTERN: '+document.getElementById('tenRecurringPattern').textContent);
+    lines.push('10-MATCH BLOCK COMPARISON: '+document.getElementById('tenBlockComparison').textContent);
     lines.push('SCAN QUALITY: '+document.getElementById('qualityConsensus').textContent);
     lines.push('REVIEW QUEUE: '+document.getElementById('qualityReviewList').textContent);
     lines.push('');
