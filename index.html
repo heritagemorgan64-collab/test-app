@@ -324,6 +324,28 @@ canvas{background:#fff;border-radius:12px;padding:8px}
     </div>
 </div>
 
+<div class="card" id="qualityDashboardCard">
+    <h2>🛡️ Scan Quality & Review</h2>
+    <p class="small">The scanner compares multiple OCR readings of the same team pairing when available. Strong agreement is kept automatically; uncertain readings are flagged instead of being silently treated as certain.</p>
+    <div class="stats">
+        <div class="stat">OCR Readings<strong id="qualityReadings">—</strong></div>
+        <div class="stat">Confirmed Matches<strong id="qualityConfirmed">—</strong></div>
+        <div class="stat">Average Confidence<strong id="qualityConfidence">—</strong></div>
+        <div class="stat">Needs Review<strong id="qualityReview">—</strong></div>
+    </div>
+    <div class="result-box" style="margin-top:14px">
+        <p><strong>Consensus:</strong> <span id="qualityConsensus">—</span></p>
+        <p><strong>Review queue:</strong> <span id="qualityReviewList">—</span></p>
+        <p><strong>Quality note:</strong> <span id="qualityNote">—</span></p>
+    </div>
+</div>
+
+<div class="card">
+    <h2>📉 Rolling Sequence Trend</h2>
+    <p class="small">A rolling average smooths short-term noise so you can see how the scanned sequence changes across its order.</p>
+    <canvas id="rollingTrendChart"></canvas>
+</div>
+
 <div class="card">
     <h2>⚠️ Accuracy</h2>
     <p class="small">
@@ -341,6 +363,8 @@ let sequenceChart = null;
 let scoreDistributionChart = null;
 let transitionChart = null;
 let sequenceTrendChart = null;
+let rollingTrendChart = null;
+window.ocrEvidence = [];
 let ocrWorker = null;
 let currentNumbers = [];
 window.extractedSequences = {home:[], away:[], total:[], diff:[], results:[]};
@@ -730,6 +754,7 @@ function buildScanResultsTable(results) {
                     <th>Team</th>
                     <th>Score</th>
                     <th>OCR</th>
+                    <th>Evidence</th>
                 </tr>
             </thead>
             <tbody>
@@ -742,6 +767,7 @@ function buildScanResultsTable(results) {
                 <td>${result.team}</td>
                 <td><strong>${result.score}</strong></td>
                 <td>${result.confidence || "-"}%</td>
+                <td>${result.readings || 1} reading${(result.readings || 1) === 1 ? "" : "s"} · ${result.consensus || 100}% agreement</td>
             </tr>
         `;
     });
@@ -928,6 +954,33 @@ async function scanFastScroll() {
             bestByTeam.forEach(r=>confirmed.set(r.team,r));
             resultsBox.innerHTML=buildScanResultsTable(Array.from(confirmed.values()));
         }
+
+        const evidence = [];
+        for (const [teamKey, readings] of candidatesByTeam.entries()) {
+            const scoreGroups = {};
+            readings.forEach(r=>{
+                if(!scoreGroups[r.score]) scoreGroups[r.score]=[];
+                scoreGroups[r.score].push(r);
+            });
+            const ranked = Object.entries(scoreGroups).sort((a,b)=>{
+                if (b[1].length !== a[1].length) return b[1].length-a[1].length;
+                return Math.max(...b[1].map(x=>x.confidence))-Math.max(...a[1].map(x=>x.confidence));
+            });
+            const [chosenScore, chosenGroup] = ranked[0] || [null, []];
+            const totalReadings = readings.length;
+            const agreement = totalReadings ? Math.round((chosenGroup.length/totalReadings)*100) : 0;
+            const avgConfidence = chosenGroup.length ? Math.round(averageOf(chosenGroup.map(x=>x.confidence))) : 0;
+            evidence.push({team:teamKey, score:chosenScore, readings:totalReadings, agreement, confidence:avgConfidence, alternatives:ranked.slice(1,3).map(x=>`${x[0]} (${x[1].length}×)`) });
+        }
+        window.ocrEvidence = evidence;
+
+        const evidenceMap = new Map(evidence.map(x=>[x.team, x]));
+        for (const r of confirmed.values()) {
+            const ev = evidenceMap.get(r.team);
+            if (ev) { r.readings=ev.readings; r.consensus=ev.agreement; r.confidence=ev.confidence; }
+        }
+
+        updateScanQualityDashboard(evidence);
 
         const finalResults =
             Array.from(confirmed.values()).sort((a,b)=>{
@@ -1221,6 +1274,7 @@ function updateFullInsights(parsed){
     drawScoreDistribution(scores);
     drawTransitionChart(transitionEntries);
     drawSequenceTrend(total);
+    drawRollingTrend(total);
     buildTeamAnalysis(parsed);
 }
 
@@ -1242,6 +1296,33 @@ function drawSequenceTrend(total){
     const ctx=document.getElementById('sequenceTrendChart');
     if(sequenceTrendChart) sequenceTrendChart.destroy();
     sequenceTrendChart=new Chart(ctx,{type:'line',data:{labels:total.map((_,i)=>i+1),datasets:[{label:'Total goals',data:total,tension:.15}]},options:{responsive:true,plugins:{legend:{display:true}},scales:{y:{beginAtZero:true}}}});
+}
+
+function updateScanQualityDashboard(evidence){
+    const confirmed=evidence.length;
+    const readings=evidence.reduce((sum,e)=>sum+e.readings,0);
+    const avgConf=confirmed?Math.round(averageOf(evidence.map(e=>e.confidence))):0;
+    const review=evidence.filter(e=>e.agreement<67 || e.confidence<65);
+    const strong=evidence.filter(e=>e.agreement>=67 && e.confidence>=65).length;
+    document.getElementById('qualityReadings').textContent=String(readings);
+    document.getElementById('qualityConfirmed').textContent=String(confirmed);
+    document.getElementById('qualityConfidence').textContent=confirmed?avgConf+'%':'—';
+    document.getElementById('qualityReview').textContent=String(review.length);
+    document.getElementById('qualityConsensus').textContent=confirmed?`${strong}/${confirmed} matches have strong consensus`:'No scan evidence yet';
+    document.getElementById('qualityReviewList').textContent=review.length?review.map(e=>`${e.team} ${e.score} (${e.agreement}% agreement, ${e.confidence}% confidence)`).join('; '):'No low-consensus readings detected.';
+    document.getElementById('qualityNote').textContent=review.length?`Review ${review.length} reading(s) before relying on them. The analyzer keeps them visible but flags their weaker evidence.`:'The confirmed readings meet the current consensus threshold.';
+}
+
+function drawRollingTrend(total){
+    const ctx=document.getElementById('rollingTrendChart');
+    if(rollingTrendChart) rollingTrendChart.destroy();
+    if(!total.length) return;
+    const windowSize=Math.min(5,total.length);
+    const rolling=total.map((_,i)=>{
+        const start=Math.max(0,i-windowSize+1);
+        return Number(averageOf(total.slice(start,i+1)).toFixed(2));
+    });
+    rollingTrendChart=new Chart(ctx,{type:'line',data:{labels:rolling.map((_,i)=>i+1),datasets:[{label:`${windowSize}-match rolling average`,data:rolling,tension:.2}]},options:{responsive:true,scales:{y:{beginAtZero:true}}}});
 }
 
 function buildTeamAnalysis(parsed){
@@ -1287,6 +1368,8 @@ function exportAnalysisReport(){
     lines.push('OUTLIERS: '+document.getElementById('outlierList').textContent);
     lines.push('LARGEST CHANGES: '+document.getElementById('largestChanges').textContent);
     lines.push('COMMON TRANSITIONS: '+document.getElementById('transitionList').textContent);
+    lines.push('SCAN QUALITY: '+document.getElementById('qualityConsensus').textContent);
+    lines.push('REVIEW QUEUE: '+document.getElementById('qualityReviewList').textContent);
     lines.push('');
     lines.push('NOTE: This report describes the scanned dataset. It does not predict future match outcomes.');
     const blob=new Blob([lines.join('\n')],{type:'text/plain'});
