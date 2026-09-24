@@ -198,7 +198,7 @@ canvas{background:#fff;border-radius:12px;padding:8px}
     <p>Upload a screen recording containing the scrolling football scores.</p>
 
     <label class="file-label">
-        📁 Choose Screen Recording
+        📁 Choose Screen Recording 1
         <input
             id="videoInput"
             type="file"
@@ -207,7 +207,19 @@ canvas{background:#fff;border-radius:12px;padding:8px}
         >
     </label>
 
+    <label class="file-label" style="margin-top:10px">
+        📁 Choose Screen Recording 2 (optional)
+        <input
+            id="videoInput2"
+            type="file"
+            accept="video/*"
+            onchange="previewVideo2(event)"
+        >
+    </label>
+
     <video id="videoPreview" controls style="display:none"></video>
+    <video id="videoPreview2" controls style="display:none"></video>
+    <p class="small">If two videos are selected, both are scanned and their confirmed matches are combined and de-duplicated before analysis.</p>
 
     <button class="primary" onclick="scanFastScroll()">🔎 Scan Fast Scroll</button>
     <button class="clear" onclick="clearVideo()">Clear Video</button>
@@ -343,6 +355,26 @@ canvas{background:#fff;border-radius:12px;padding:8px}
             <thead><tr><th>Team</th><th>Matches</th><th>GF</th><th>GA</th><th>W</th><th>D</th><th>L</th><th>Avg GF</th><th>Avg GA</th></tr></thead>
             <tbody id="teamAnalysisBody"><tr><td colspan="9">No confirmed team data yet.</td></tr></tbody>
         </table>
+    </div>
+</div>
+
+<div class="card" id="teamPatternExplorer">
+    <h2>🎯 Team Pattern Explorer</h2>
+    <p class="small">Choose a scanned team and a home/away condition. The analyzer reports only what is present in the scanned historical data.</p>
+    <div class="stats">
+        <div class="stat"><label>Team<br><input id="patternTeam" placeholder="ARS" style="width:100%;margin-top:6px;padding:8px;border-radius:8px;border:0"></label></div>
+        <div class="stat"><label>Venue<br><select id="patternVenue" style="width:100%;margin-top:6px;padding:8px;border-radius:8px"><option value="away">Away</option><option value="home">Home</option><option value="all">All</option></select></label></div>
+        <div class="stat"><label>Goal condition<br><select id="patternCondition" style="width:100%;margin-top:6px;padding:8px;border-radius:8px"><option value="over">Scored over</option><option value="atleast">Scored at least</option><option value="under">Scored under</option></select></label></div>
+        <div class="stat"><label>Line<br><input id="patternLine" type="number" min="0" max="15" step="0.5" value="1" style="width:100%;margin-top:6px;padding:8px;border-radius:8px;border:0"></label></div>
+    </div>
+    <button class="primary" onclick="analyzeTeamPattern()">Analyze Team Pattern</button>
+    <div class="result-box" style="margin-top:14px">
+        <p><strong>Result:</strong> <span id="teamPatternResult">—</span></p>
+        <p><strong>Common score:</strong> <span id="teamCommonScore">—</span></p>
+        <p><strong>Matches in sample:</strong> <span id="teamPatternMatches">—</span></p>
+        <p><strong>Condition frequency:</strong> <span id="teamPatternFrequency">—</span></p>
+        <p><strong>Recent sequence:</strong> <span id="teamPatternSequence">—</span></p>
+        <p><strong>Home/Away split:</strong> <span id="teamVenueSplit">—</span></p>
     </div>
 </div>
 
@@ -658,9 +690,21 @@ function previewVideo(event) {
     document.getElementById("scanProgress").style.width = "0%";
 }
 
+function previewVideo2(event) {
+    const file=event.target.files[0];
+    const video=document.getElementById('videoPreview2');
+    if(!file) return;
+    if(video.dataset.objectUrl) URL.revokeObjectURL(video.dataset.objectUrl);
+    const url=URL.createObjectURL(file);
+    video.dataset.objectUrl=url; video.src=url; video.style.display='block'; video.load();
+    document.getElementById('ocrStatus').textContent='Two videos ready. Press Scan Fast Scroll to scan both.';
+}
+
 function clearVideo() {
     const video = document.getElementById("videoPreview");
     const input = document.getElementById("videoInput");
+    const input2 = document.getElementById("videoInput2");
+    const video2 = document.getElementById("videoPreview2");
 
     if (video.dataset.objectUrl) {
         URL.revokeObjectURL(video.dataset.objectUrl);
@@ -672,6 +716,9 @@ function clearVideo() {
     video.style.display = "none";
 
     input.value = "";
+    input2.value = "";
+    if(video2.dataset.objectUrl) URL.revokeObjectURL(video2.dataset.objectUrl);
+    video2.pause(); video2.removeAttribute("src"); video2.load(); video2.style.display="none";
     document.getElementById("ocrStatus").textContent = "Ready to scan.";
     document.getElementById("betSlipResults").textContent =
         "No scan results yet.";
@@ -798,7 +845,82 @@ function buildScanResultsTable(results) {
     return html;
 }
 
+async function loadFileIntoVideo(file, video) {
+    if (!file) return false;
+    if (video.dataset.objectUrl) URL.revokeObjectURL(video.dataset.objectUrl);
+    const url = URL.createObjectURL(file);
+    video.dataset.objectUrl = url;
+    video.src = url;
+    video.style.display = "block";
+    video.load();
+    await new Promise((resolve,reject)=>{
+        const done=()=>{video.removeEventListener('loadedmetadata',done);video.removeEventListener('error',fail);resolve();};
+        const fail=()=>{video.removeEventListener('loadedmetadata',done);video.removeEventListener('error',fail);reject(new Error('Could not load video.'));};
+        video.addEventListener('loadedmetadata',done,{once:true});
+        video.addEventListener('error',fail,{once:true});
+    });
+    return true;
+}
+
 async function scanFastScroll() {
+    const input1=document.getElementById('videoInput');
+    const input2=document.getElementById('videoInput2');
+    const file1=input1 && input1.files[0];
+    const file2=input2 && input2.files[0];
+    const status=document.getElementById('ocrStatus');
+    if(!file1 && !file2){ status.textContent='Please upload at least one screen recording first.'; return; }
+    const allResults=[];
+    const allEvidence=[];
+    const files=[file1,file2].filter(Boolean);
+    try{
+        for(let i=0;i<files.length;i++){
+            status.textContent=`Preparing video ${i+1} of ${files.length}...`;
+            await loadFileIntoVideo(files[i],document.getElementById('videoPreview'));
+            const results=await scanFastScrollSingle();
+            if(Array.isArray(results)) results.forEach(r=>{r._source=i;});
+            if(Array.isArray(results)) allResults.push(...results);
+            if(Array.isArray(window.ocrEvidence)) allEvidence.push(...window.ocrEvidence);
+        }
+        const dedupe=new Map();
+        allResults.forEach(r=>{
+            const key=(r.team||'').trim().toUpperCase();
+            if(!key) return;
+            const old=dedupe.get(key);
+            if(!old || (r.confidence||0)>(old.confidence||0)) dedupe.set(key,r);
+        });
+        const combined=Array.from(dedupe.values()).sort((a,b)=>{
+            if((a._source||0)!==(b._source||0)) return (a._source||0)-(b._source||0);
+            const ta=(a.time||'00:00').split(':').map(Number); const tb=(b.time||'00:00').split(':').map(Number);
+            return (ta[0]*60+ta[1])-(tb[0]*60+tb[1]);
+        });
+        // Keep evidence from both recordings, grouped by team.
+        const evMap=new Map();
+        allEvidence.forEach(e=>{
+            const k=e.team.trim().toUpperCase();
+            if(!evMap.has(k)) evMap.set(k,[]);
+            evMap.get(k).push(e);
+        });
+        const mergedEvidence=Array.from(evMap.entries()).map(([team,arr])=>{
+            const readings=arr.reduce((n,e)=>n+(e.readings||1),0);
+            const conf=Math.round(arr.reduce((n,e)=>n+(e.confidence||0)*(e.readings||1),0)/Math.max(1,readings));
+            const agreement=Math.round(arr.reduce((n,e)=>n+(e.agreement||0)*(e.readings||1),0)/Math.max(1,readings));
+            const chosen=combined.find(r=>(r.team||'').trim().toUpperCase()===team);
+            return {team:chosen?chosen.team:team,score:chosen?chosen.score:'—',readings,confidence:conf,agreement};
+        });
+        window.ocrEvidence=mergedEvidence;
+        updateScanQualityDashboard(mergedEvidence);
+        if(combined.length){
+            document.getElementById('betSlipResults').innerHTML=buildScanResultsTable(combined);
+            updateExtractedSequenceAnalysis(combined);
+            const sequence=combined.map(r=>parseScoreText(r.score)).filter(Boolean).map(s=>s.home+s.away);
+            document.getElementById('dataInput').value=sequence.join(', ');
+            analyzeData();
+            status.textContent=`Combined scan complete: ${combined.length} unique confirmed matches from ${files.length} video(s).`;
+        } else { status.textContent='Both videos scanned, but no confirmed matches were detected.'; }
+    }catch(err){ console.error(err); status.textContent='Combined scan failed: '+err.message; }
+}
+
+async function scanFastScrollSingle() {
     const video = document.getElementById("videoPreview");
     const status = document.getElementById("ocrStatus");
     const resultsBox = document.getElementById("betSlipResults");
@@ -1016,12 +1138,14 @@ async function scanFastScroll() {
 
             resultsBox.textContent =
                 "No confirmed football scores found.";
-            return;
+            window.lastScanResults = [];
+            return [];
         }
 
         resultsBox.innerHTML =
             buildScanResultsTable(finalResults);
 
+        window.lastScanResults = finalResults;
         updateExtractedSequenceAnalysis(finalResults);
 
         // Automatically send the extracted total-goal sequence into the
@@ -1436,6 +1560,35 @@ function drawRollingTrend(total){
     rollingTrendChart=new Chart(ctx,{type:'line',data:{labels:rolling.map((_,i)=>i+1),datasets:[{label:`${windowSize}-match rolling average`,data:rolling,tension:.2}]},options:{responsive:true,scales:{y:{beginAtZero:true}}}});
 }
 
+function analyzeTeamPattern(){
+    const parsed=(window.extractedSequences&&window.extractedSequences.results)||window.lastScanResults||[];
+    const raw=(document.getElementById('patternTeam').value||'').trim().toUpperCase();
+    const venue=document.getElementById('patternVenue').value;
+    const condition=document.getElementById('patternCondition').value;
+    const line=Number(document.getElementById('patternLine').value);
+    const matches=[];
+    parsed.forEach(r=>{
+        const p=parseTeamPair(r.team); if(!p) return;
+        const homeName=p.home.trim().toUpperCase(), awayName=p.away.trim().toUpperCase();
+        const h=r.scoreParts.home, a=r.scoreParts.away;
+        let side=null, goals=null, opponent=null;
+        if(homeName===raw && (venue==='home'||venue==='all')){side='home';goals=h;opponent=p.away;}
+        else if(awayName===raw && (venue==='away'||venue==='all')){side='away';goals=a;opponent=p.home;}
+        if(side) matches.push({score:r.score,side,goals,opponent,time:r.time});
+    });
+    const passes=matches.filter(m=>condition==='over'?m.goals>line:condition==='atleast'?m.goals>=line:m.goals<line);
+    const freq=getFrequencyEntries(matches.map(m=>m.score));
+    const common=freq[0];
+    const homeCount=matches.filter(m=>m.side==='home').length, awayCount=matches.filter(m=>m.side==='away').length;
+    const pct=matches.length?((passes.length/matches.length)*100).toFixed(1):'0.0';
+    document.getElementById('teamPatternResult').textContent=matches.length?`${raw} ${venue} — ${passes.length}/${matches.length} matches satisfy ${condition==='over'?'>':condition==='atleast'?'>=':'<'} ${line} goals scored (${pct}%).`:'No matching scanned data found.';
+    document.getElementById('teamCommonScore').textContent=common?`${common[0]} (${common[1]}×)`:'—';
+    document.getElementById('teamPatternMatches').textContent=String(matches.length);
+    document.getElementById('teamPatternFrequency').textContent=matches.length?`${pct}%`:'—';
+    document.getElementById('teamPatternSequence').textContent=matches.length?matches.map(m=>`${m.score}${m.side==='away'?' A':' H'}`).join(' → '):'—';
+    document.getElementById('teamVenueSplit').textContent=`Home ${homeCount} · Away ${awayCount}`;
+}
+
 function buildTeamAnalysis(parsed){
     const teams={};
     parsed.forEach(r=>{
@@ -1482,6 +1635,8 @@ function exportAnalysisReport(){
     lines.push('10-MATCH FORMULA: '+document.getElementById('tenMatchFormula').textContent);
     lines.push('10-MATCH RECURRING PATTERN: '+document.getElementById('tenRecurringPattern').textContent);
     lines.push('10-MATCH BLOCK COMPARISON: '+document.getElementById('tenBlockComparison').textContent);
+    lines.push('TEAM PATTERN EXPLORER: '+document.getElementById('teamPatternResult').textContent);
+    lines.push('TEAM COMMON SCORE: '+document.getElementById('teamCommonScore').textContent);
     lines.push('SCAN QUALITY: '+document.getElementById('qualityConsensus').textContent);
     lines.push('REVIEW QUEUE: '+document.getElementById('qualityReviewList').textContent);
     lines.push('');
