@@ -219,7 +219,7 @@ canvas{background:#fff;border-radius:12px;padding:8px}
 
     <video id="videoPreview" controls style="display:none"></video>
     <video id="videoPreview2" controls style="display:none"></video>
-    <p class="small">If two videos are selected, both are scanned and their confirmed matches are combined and de-duplicated before analysis.</p>
+    <p class="small">If two videos are selected, each video is scanned separately. Their confirmed matches are then combined and de-duplicated before analysis. If one video has no readable matches, the other video is still kept.</p>
 
     <button class="primary" onclick="scanFastScroll()">🔎 Scan Fast Scroll</button>
     <button class="clear" onclick="clearVideo()">Clear Video</button>
@@ -874,12 +874,16 @@ async function scanFastScroll() {
     const files=[file1,file2].filter(Boolean);
     try{
         for(let i=0;i<files.length;i++){
+            const targetVideo = i===0 ? document.getElementById('videoPreview') : document.getElementById('videoPreview2');
             status.textContent=`Preparing video ${i+1} of ${files.length}...`;
-            await loadFileIntoVideo(files[i],document.getElementById('videoPreview'));
-            const results=await scanFastScrollSingle();
+            await loadFileIntoVideo(files[i], targetVideo);
+            // Scan each video element independently. This avoids replacing the
+            // first video while the second one is being prepared.
+            const results=await scanFastScrollSingle(targetVideo);
             if(Array.isArray(results)) results.forEach(r=>{r._source=i;});
             if(Array.isArray(results)) allResults.push(...results);
             if(Array.isArray(window.ocrEvidence)) allEvidence.push(...window.ocrEvidence);
+            status.textContent=`Video ${i+1} of ${files.length} complete: ${Array.isArray(results)?results.length:0} confirmed matches.`;
         }
         const dedupe=new Map();
         allResults.forEach(r=>{
@@ -920,8 +924,8 @@ async function scanFastScroll() {
     }catch(err){ console.error(err); status.textContent='Combined scan failed: '+err.message; }
 }
 
-async function scanFastScrollSingle() {
-    const video = document.getElementById("videoPreview");
+async function scanFastScrollSingle(videoEl) {
+    const video = videoEl || document.getElementById("videoPreview");
     const status = document.getElementById("ocrStatus");
     const resultsBox = document.getElementById("betSlipResults");
     const progress = document.getElementById("scanProgress");
@@ -1134,10 +1138,7 @@ async function scanFastScrollSingle() {
 
         if (!finalResults.length) {
             status.textContent =
-                "Scan complete, but no confirmed FT scores were detected.";
-
-            resultsBox.textContent =
-                "No confirmed football scores found.";
+                "Scan complete, but no confirmed FT scores were detected in this video.";
             window.lastScanResults = [];
             return [];
         }
