@@ -885,12 +885,20 @@ async function scanFastScroll() {
             if(Array.isArray(window.ocrEvidence)) allEvidence.push(...window.ocrEvidence);
             status.textContent=`Video ${i+1} of ${files.length} complete: ${Array.isArray(results)?results.length:0} confirmed matches.`;
         }
+        // Merge both videos without letting Video 2 replace Video 1.
+        // A duplicate is the same team pairing AND the same score.
+        // The same teams with a different score are kept as separate
+        // historical match readings.
         const dedupe=new Map();
         allResults.forEach(r=>{
-            const key=(r.team||'').trim().toUpperCase();
-            if(!key) return;
+            const team=(r.team||'').trim().toUpperCase();
+            const score=(r.score||'').trim();
+            if(!team || !score) return;
+            const key=team+'|'+score;
             const old=dedupe.get(key);
-            if(!old || (r.confidence||0)>(old.confidence||0)) dedupe.set(key,r);
+            if(!old || (r.confidence||0)>(old.confidence||0)) {
+                dedupe.set(key,r);
+            }
         });
         const combined=Array.from(dedupe.values()).sort((a,b)=>{
             if((a._source||0)!==(b._source||0)) return (a._source||0)-(b._source||0);
@@ -900,16 +908,22 @@ async function scanFastScroll() {
         // Keep evidence from both recordings, grouped by team.
         const evMap=new Map();
         allEvidence.forEach(e=>{
-            const k=e.team.trim().toUpperCase();
+            const team=(e.team||'').trim().toUpperCase();
+            const score=(e.score||'').trim();
+            const k=team+'|'+score;
+            if(!team || !score) return;
             if(!evMap.has(k)) evMap.set(k,[]);
             evMap.get(k).push(e);
         });
-        const mergedEvidence=Array.from(evMap.entries()).map(([team,arr])=>{
+        const mergedEvidence=Array.from(evMap.entries()).map(([key,arr])=>{
             const readings=arr.reduce((n,e)=>n+(e.readings||1),0);
             const conf=Math.round(arr.reduce((n,e)=>n+(e.confidence||0)*(e.readings||1),0)/Math.max(1,readings));
             const agreement=Math.round(arr.reduce((n,e)=>n+(e.agreement||0)*(e.readings||1),0)/Math.max(1,readings));
-            const chosen=combined.find(r=>(r.team||'').trim().toUpperCase()===team);
-            return {team:chosen?chosen.team:team,score:chosen?chosen.score:'—',readings,confidence:conf,agreement};
+            const chosen=combined.find(r=>{
+                const rk=(r.team||'').trim().toUpperCase()+'|'+(r.score||'').trim();
+                return rk===key;
+            });
+            return {team:chosen?chosen.team:key.split('|')[0],score:chosen?chosen.score:key.split('|')[1],readings,confidence:conf,agreement};
         });
         window.ocrEvidence=mergedEvidence;
         updateScanQualityDashboard(mergedEvidence);
@@ -919,7 +933,7 @@ async function scanFastScroll() {
             const sequence=combined.map(r=>parseScoreText(r.score)).filter(Boolean).map(s=>s.home+s.away);
             document.getElementById('dataInput').value=sequence.join(', ');
             analyzeData();
-            status.textContent=`Combined scan complete: ${combined.length} unique confirmed matches from ${files.length} video(s).`;
+            status.textContent=`Combined scan complete: ${combined.length} unique confirmed matches merged from ${files.length} video(s). Video 1 and Video 2 were both retained.`;
         } else { status.textContent='Both videos scanned, but no confirmed matches were detected.'; }
     }catch(err){ console.error(err); status.textContent='Combined scan failed: '+err.message; }
 }
@@ -1148,19 +1162,6 @@ async function scanFastScrollSingle(videoEl) {
 
         window.lastScanResults = finalResults;
         updateExtractedSequenceAnalysis(finalResults);
-
-        // Automatically send the extracted total-goal sequence into the
-        // existing Sequence Analyzer so scanning and analysis are connected.
-        if (finalResults.length) {
-            const sequence = finalResults
-                .map(r => parseScoreText(r.score))
-                .filter(Boolean)
-                .map(s => s.home + s.away);
-            if (sequence.length) {
-                document.getElementById("dataInput").value = sequence.join(", ");
-                analyzeData();
-            }
-        }
 
         status.textContent =
             "Scan complete. " +
