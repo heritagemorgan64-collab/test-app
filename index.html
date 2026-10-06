@@ -1028,7 +1028,11 @@ async function scanFastScrollSingle(videoEl) {
             /*
              * Seek to the exact video position.
              */
-            await seekVideo(video,targetTime);
+            const seekOK = await seekVideo(video,targetTime);
+            if (!seekOK) {
+                status.textContent = `Skipping unreadable video position ${formatVideoTime(targetTime)}...`;
+                continue;
+            }
 
             const actualTime = video.currentTime;
 
@@ -1061,8 +1065,21 @@ async function scanFastScrollSingle(videoEl) {
                 " • " +
                 formatVideoTime(actualTime);
 
-            const result =
-                await ocrWorker.recognize(canvas);
+            // Tesseract can occasionally hang on a difficult frame.
+            // Never allow one bad frame to freeze the entire scan.
+            let result;
+            try {
+                result = await Promise.race([
+                    ocrWorker.recognize(canvas),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error("OCR frame timeout")), 20000))
+                ]);
+            } catch(frameError) {
+                if (String(frameError.message || frameError).includes("timeout")) {
+                    status.textContent = `OCR frame ${frame+1}/${totalFrames} timed out; continuing...`;
+                    continue;
+                }
+                throw frameError;
+            }
 
             const confidence = Number(result.data.confidence || 0);
             if (confidence < 50) {
@@ -1762,17 +1779,25 @@ function analyzeExtractedSequence() {
 function seekVideo(video,time) {
     return new Promise(resolve => {
         if (Math.abs(video.currentTime-time) < 0.02) {
-            resolve();
+            resolve(true);
             return;
         }
 
-        const done = () => {
-            video.removeEventListener("seeked",done);
-            resolve();
+        let settled = false;
+        const finish = (ok) => {
+            if (settled) return;
+            settled = true;
+            video.removeEventListener("seeked",onSeeked);
+            video.removeEventListener("error",onError);
+            clearTimeout(timer);
+            resolve(ok);
         };
-
-        video.addEventListener("seeked",done,{once:true});
-        video.currentTime = time;
+        const onSeeked = () => finish(true);
+        const onError = () => finish(false);
+        const timer = setTimeout(() => finish(false), 6000);
+        video.addEventListener("seeked",onSeeked,{once:true});
+        video.addEventListener("error",onError,{once:true});
+        try { video.currentTime = time; } catch(e) { finish(false); }
     });
 }
 </script>
