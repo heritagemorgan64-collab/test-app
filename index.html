@@ -358,6 +358,29 @@ canvas{background:#fff;border-radius:12px;padding:8px}
     </div>
 </div>
 
+<div class="card" id="formulaLab">
+    <h2>🧪 Universal Formula Backtester</h2>
+    <p class="small">Universal football formulas tested against the confirmed scanned matches. The test is historical backtesting only — it does not guarantee the next result. Each rule is measured by hits, misses, hit rate, longest miss run, last 10 results, and 10-match block consistency.</p>
+    <div class="result-box" style="margin-top:14px;overflow-x:auto">
+        <table id="formulaTable">
+            <thead><tr><th>Formula</th><th>Hits</th><th>Misses</th><th>Hit Rate</th><th>Longest Miss Run</th><th>Last 10</th><th>Sample</th></tr></thead>
+            <tbody id="formulaBody"><tr><td colspan="7">Scan confirmed scores first.</td></tr></tbody>
+        </table>
+    </div>
+    <div class="result-box" style="margin-top:14px;overflow-x:auto">
+        <h3 style="margin-top:0">10-Match Formula Consistency</h3>
+        <table id="formulaBlockTable">
+            <thead><tr><th>Formula</th><th>Block 1</th><th>Block 2</th><th>Block 3</th><th>Block 4</th><th>Blocks Passed</th><th>Average Rate</th></tr></thead>
+            <tbody id="formulaBlockBody"><tr><td colspan="7">Scan at least 10 confirmed matches.</td></tr></tbody>
+        </table>
+    </div>
+    <div class="result-box" style="margin-top:14px">
+        <p><strong>Best historical rule in this sample:</strong> <span id="bestFormula">—</span></p>
+        <p><strong>Most consistent rule:</strong> <span id="consistentFormula">—</span></p>
+        <p><strong>Important:</strong> <span id="formulaWarning">A high historical rate does not guarantee the next match.</span></p>
+    </div>
+</div>
+
 <div class="card" id="teamPatternExplorer">
     <h2>🎯 Team Pattern Explorer</h2>
     <p class="small">Choose a scanned team and a home/away condition. The analyzer reports only what is present in the scanned historical data.</p>
@@ -370,7 +393,7 @@ canvas{background:#fff;border-radius:12px;padding:8px}
     <button class="primary" onclick="analyzeTeamPattern()">Analyze Team Pattern</button>
     <div class="result-box" style="margin-top:14px">
         <p><strong>Result:</strong> <span id="teamPatternResult">—</span></p>
-        <p><strong>Common score:</strong> <span id="teamCommonScore">—</span></p>
+        <p><strong>Common score (team-relative):</strong> <span id="teamCommonScore">—</span></p>
         <p><strong>Matches in sample:</strong> <span id="teamPatternMatches">—</span></p>
         <p><strong>Condition frequency:</strong> <span id="teamPatternFrequency">—</span></p>
         <p><strong>Recent sequence:</strong> <span id="teamPatternSequence">—</span></p>
@@ -934,7 +957,7 @@ async function scanFastScroll() {
             document.getElementById('dataInput').value=sequence.join(', ');
             analyzeData();
             status.textContent=`Combined scan complete: ${combined.length} unique confirmed matches merged from ${files.length} video(s). Video 1 and Video 2 were both retained.`;
-        } else { status.textContent='Both videos scanned, but no confirmed matches were detected.'; }
+        } else { status.textContent='Both videos scanned, but no confirmed FT scores were detected.'; }
     }catch(err){ console.error(err); status.textContent='Combined scan failed: '+err.message; }
 }
 
@@ -1444,13 +1467,17 @@ function updateExtractedSequenceAnalysis(results) {
     window.extractedSequences = {home, away, total, diff, scorePairs, results: parsed};
     updateAdvancedExtractedAnalysis(parsed);
     updateFullInsights(parsed);
+    backtestUniversalFormulas(parsed);
 }
 
 
 function parseTeamPair(teamText){
-    if(!teamText) return null;
-    const m=String(teamText).match(/^\s*(.+?)\s+(?:vs|v|VS)\s+(.+?)\s*$/i);
-    return m ? {home:m[1].trim(), away:m[2].trim()} : null;
+    if(!teamText)return null;
+    const text=String(teamText).trim().replace(/\s+/g,' ');
+    let m=text.match(/^(.+?)\s+(?:vs|v)\s+(.+)$/i);
+    if(m)return {home:m[1].trim(),away:m[2].trim()};
+    m=text.match(/^(.+?)\s*[-–—]\s*(.+)$/);
+    return m?{home:m[1].trim(),away:m[2].trim()}:null;
 }
 
 function getFrequencyEntries(values){
@@ -1562,32 +1589,66 @@ function drawRollingTrend(total){
     rollingTrendChart=new Chart(ctx,{type:'line',data:{labels:rolling.map((_,i)=>i+1),datasets:[{label:`${windowSize}-match rolling average`,data:rolling,tension:.2}]},options:{responsive:true,scales:{y:{beginAtZero:true}}}});
 }
 
+function backtestUniversalFormulas(parsed){
+    const body=document.getElementById('formulaBody');
+    const blockBody=document.getElementById('formulaBlockBody');
+    if(!body) return;
+    if(!parsed || !parsed.length){
+        body.innerHTML='<tr><td colspan="7">Scan confirmed scores first.</td></tr>';
+        if(blockBody) blockBody.innerHTML='<tr><td colspan="7">Scan at least 10 confirmed matches.</td></tr>';
+        document.getElementById('bestFormula').textContent='—';
+        document.getElementById('consistentFormula').textContent='—';
+        return;
+    }
+    const rows=parsed.map(r=>{const p=r.scoreParts||parseScoreText(r.score)||{home:0,away:0};return {h:p.home,a:p.away,t:p.home+p.away,btts:p.home>0&&p.away>0};});
+    const tests=[
+        ['Over 0.5 total goals',r=>r.t>0],['Under 0.5 total goals',r=>r.t<1],
+        ['Over 1.5 total goals',r=>r.t>1],['Under 1.5 total goals',r=>r.t<2],
+        ['Over 2.5 total goals',r=>r.t>2],['Under 2.5 total goals',r=>r.t<3],
+        ['Over 3.5 total goals',r=>r.t>3],['Under 3.5 total goals',r=>r.t<4],
+        ['Over 4.5 total goals',r=>r.t>4],['Under 4.5 total goals',r=>r.t<5],
+        ['Home win',r=>r.h>r.a],['Draw',r=>r.h===r.a],['Away win',r=>r.a>r.h],
+        ['BTTS Yes',r=>r.btts],['BTTS No',r=>!r.btts]
+    ];
+    const stats=tests.map(([name,fn])=>{
+        const outcomes=rows.map(fn),hits=outcomes.filter(Boolean).length,misses=outcomes.length-hits;
+        let longest=0,run=0; outcomes.forEach(ok=>{if(ok)run=0;else{run++;longest=Math.max(longest,run);}});
+        const recent=outcomes.slice(-10); return {name,fn,outcomes,hits,misses,longest,recentHits:recent.filter(Boolean).length,recentN:recent.length,rate:hits/outcomes.length*100};
+    });
+    const sorted=[...stats].sort((a,b)=>b.rate-a.rate||a.longest-b.longest||b.hits-a.hits);
+    body.innerHTML=sorted.map(x=>`<tr><td>${escapeHtml(x.name)}</td><td>${x.hits}</td><td>${x.misses}</td><td>${x.rate.toFixed(1)}%</td><td>${x.longest}</td><td>${x.recentHits}/${x.recentN}</td><td>${rows.length}</td></tr>`).join('');
+    const blockCount=Math.floor(rows.length/10);
+    if(blockBody){
+        if(!blockCount) blockBody.innerHTML='<tr><td colspan="7">At least 10 confirmed matches are required for block comparison.</td></tr>';
+        else {
+            const blockRows=stats.map(s=>{const rates=[];for(let b=0;b<blockCount;b++){const c=s.outcomes.slice(b*10,b*10+10);rates.push(c.filter(Boolean).length*10);}return {name:s.name,rates,passed:rates.filter(v=>v>=50).length,avg:rates.reduce((a,b)=>a+b,0)/rates.length};}).sort((a,b)=>b.passed-a.passed||b.avg-a.avg);
+            blockBody.innerHTML=blockRows.map(x=>{let cells=x.rates.slice(0,4).map(v=>`<td>${v}%</td>`).join('');cells+=''.padStart(0);if(x.rates.length<4)cells+='<td>—</td>'.repeat(4-x.rates.length);return `<tr><td>${escapeHtml(x.name)}</td>${cells}<td>${x.passed}/${blockCount}</td><td>${x.avg.toFixed(1)}%</td></tr>`;}).join('');
+        }
+    }
+    const best=sorted[0];
+    const score=s=>{const rates=[];for(let i=0;i<blockCount;i++)rates.push(s.outcomes.slice(i*10,i*10+10).filter(Boolean).length*10);return {passed:rates.filter(v=>v>=50).length,avg:rates.length?rates.reduce((a,b)=>a+b,0)/rates.length:0};};
+    const consistent=[...stats].sort((a,b)=>{const A=score(a),B=score(b);return B.passed-A.passed||B.avg-A.avg||a.longest-b.longest||b.rate-a.rate;})[0];
+    document.getElementById('bestFormula').textContent=best?`${best.name}: ${best.rate.toFixed(1)}% (${best.hits}/${rows.length})`:'—';
+    document.getElementById('consistentFormula').textContent=consistent?`${consistent.name}: strongest 10-match consistency, ${consistent.rate.toFixed(1)}% overall`:'—';
+    document.getElementById('formulaWarning').textContent=`Backtest sample: ${rows.length} confirmed matches. A formula that performs well historically can still fail repeatedly in a new sample.`;
+}
+
 function analyzeTeamPattern(){
     const parsed=(window.extractedSequences&&window.extractedSequences.results)||window.lastScanResults||[];
     const raw=(document.getElementById('patternTeam').value||'').trim().toUpperCase();
-    const venue=document.getElementById('patternVenue').value;
-    const condition=document.getElementById('patternCondition').value;
-    const line=Number(document.getElementById('patternLine').value);
+    const venue=document.getElementById('patternVenue').value,condition=document.getElementById('patternCondition').value,line=Number(document.getElementById('patternLine').value);
+    if(!raw){document.getElementById('teamPatternResult').textContent='Enter a team abbreviation, e.g. ARS.';return;}
     const matches=[];
-    parsed.forEach(r=>{
-        const p=parseTeamPair(r.team); if(!p) return;
-        const homeName=p.home.trim().toUpperCase(), awayName=p.away.trim().toUpperCase();
-        const h=r.scoreParts.home, a=r.scoreParts.away;
-        let side=null, goals=null, opponent=null;
-        if(homeName===raw && (venue==='home'||venue==='all')){side='home';goals=h;opponent=p.away;}
-        else if(awayName===raw && (venue==='away'||venue==='all')){side='away';goals=a;opponent=p.home;}
-        if(side) matches.push({score:r.score,side,goals,opponent,time:r.time});
-    });
+    parsed.forEach(r=>{const p=parseTeamPair(r.team),sp=r.scoreParts||parseScoreText(r.score);if(!p||!sp)return;const hn=p.home.toUpperCase(),an=p.away.toUpperCase();let side=null,goals=null,opponent=null,teamRelativeScore='';
+        if(hn===raw&&(venue==='home'||venue==='all')){side='home';goals=sp.home;opponent=p.away;teamRelativeScore=`${sp.home}-${sp.away}`;}
+        else if(an===raw&&(venue==='away'||venue==='all')){side='away';goals=sp.away;opponent=p.home;teamRelativeScore=`${sp.away}-${sp.home}`;}
+        if(side)matches.push({teamRelativeScore,side,goals,opponent,time:r.time});});
     const passes=matches.filter(m=>condition==='over'?m.goals>line:condition==='atleast'?m.goals>=line:m.goals<line);
-    const freq=getFrequencyEntries(matches.map(m=>m.score));
-    const common=freq[0];
-    const homeCount=matches.filter(m=>m.side==='home').length, awayCount=matches.filter(m=>m.side==='away').length;
-    const pct=matches.length?((passes.length/matches.length)*100).toFixed(1):'0.0';
-    document.getElementById('teamPatternResult').textContent=matches.length?`${raw} ${venue} — ${passes.length}/${matches.length} matches satisfy ${condition==='over'?'>':condition==='atleast'?'>=':'<'} ${line} goals scored (${pct}%).`:'No matching scanned data found.';
-    document.getElementById('teamCommonScore').textContent=common?`${common[0]} (${common[1]}×)`:'—';
-    document.getElementById('teamPatternMatches').textContent=String(matches.length);
-    document.getElementById('teamPatternFrequency').textContent=matches.length?`${pct}%`:'—';
-    document.getElementById('teamPatternSequence').textContent=matches.length?matches.map(m=>`${m.score}${m.side==='away'?' A':' H'}`).join(' → '):'—';
+    const freq=getFrequencyEntries(matches.map(m=>m.teamRelativeScore)),common=freq[0],homeCount=matches.filter(m=>m.side==='home').length,awayCount=matches.filter(m=>m.side==='away').length,pct=matches.length?(passes.length/matches.length*100).toFixed(1):'0.0';
+    document.getElementById('teamPatternResult').textContent=matches.length?`${raw} ${venue} — ${passes.length}/${matches.length} matches satisfy ${condition==='over'?'>':condition==='atleast'?'>=':'<'} ${line} goals scored (${pct}%).`:'No matching scanned data found. Check that the team name matches the OCR team abbreviation.';
+    document.getElementById('teamCommonScore').textContent=common?`${raw} ${common[0]} (${common[1]}×)`:'—';
+    document.getElementById('teamPatternMatches').textContent=String(matches.length);document.getElementById('teamPatternFrequency').textContent=matches.length?`${pct}%`:'—';
+    document.getElementById('teamPatternSequence').textContent=matches.length?matches.map(m=>`${m.teamRelativeScore}${m.side==='away'?' A':' H'}`).join(' → '):'—';
     document.getElementById('teamVenueSplit').textContent=`Home ${homeCount} · Away ${awayCount}`;
 }
 
@@ -1638,6 +1699,8 @@ function exportAnalysisReport(){
     lines.push('10-MATCH RECURRING PATTERN: '+document.getElementById('tenRecurringPattern').textContent);
     lines.push('10-MATCH BLOCK COMPARISON: '+document.getElementById('tenBlockComparison').textContent);
     lines.push('TEAM PATTERN EXPLORER: '+document.getElementById('teamPatternResult').textContent);
+    lines.push('UNIVERSAL FORMULA BEST: '+document.getElementById('bestFormula').textContent);
+    lines.push('UNIVERSAL FORMULA CONSISTENCY: '+document.getElementById('consistentFormula').textContent);
     lines.push('TEAM COMMON SCORE: '+document.getElementById('teamCommonScore').textContent);
     lines.push('SCAN QUALITY: '+document.getElementById('qualityConsensus').textContent);
     lines.push('REVIEW QUEUE: '+document.getElementById('qualityReviewList').textContent);
