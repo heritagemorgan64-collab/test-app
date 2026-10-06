@@ -7,7 +7,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/tesseract.min.js"></script>
 
 <style>
 *{box-sizing:border-box}
@@ -195,7 +195,7 @@ canvas{background:#fff;border-radius:12px;padding:8px}
 
 <div class="card">
     <h2>🎥 Screen Recording</h2>
-    <p>Upload a screen recording containing the scrolling football scores.</p>
+    <p>Upload a screen recording containing the scrolling football scores. The scanner is league-independent: France, England, and other competitions are supported; no team list is required.</p>
 
     <label class="file-label">
         📁 Choose Screen Recording 1
@@ -815,7 +815,7 @@ function findTeam(lines, scoreIndex) {
 
         // Team abbreviations on the betting slip are normally 2–5 letters.
         const match = line.match(
-            /\b([A-Z]{2,5})\s+(?:VS|V)\s+([A-Z]{2,5})\b/i
+            /\b([A-ZÀ-ÖØ-Ý][A-ZÀ-ÖØ-Ý0-9 .\-]{1,24}?)\s+(?:VS|V)\s+([A-ZÀ-ÖØ-Ý][A-ZÀ-ÖØ-Ý0-9 .\-]{1,24}?)\b/i
         );
 
         if (match) {
@@ -1009,7 +1009,7 @@ async function scanFastScrollSingle(videoEl) {
         /*
          * 0.45 seconds is a balance between speed and coverage.
          */
-        const interval = 0.35;
+        const interval = 0.55;
         const totalFrames = Math.max(
             1,
             Math.ceil(duration / interval)
@@ -1017,6 +1017,8 @@ async function scanFastScrollSingle(videoEl) {
 
         const candidatesByTeam = new Map();
         const confirmed = new Map();
+
+        status.textContent = `Universal football OCR: scanning ${totalFrames} sampled frames. No England-only team list is used.`;
 
         for (let frame=0; frame<totalFrames; frame++) {
 
@@ -1071,11 +1073,14 @@ async function scanFastScrollSingle(videoEl) {
             try {
                 result = await Promise.race([
                     ocrWorker.recognize(canvas),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error("OCR frame timeout")), 20000))
+                    new Promise((_, reject) => setTimeout(() => reject(new Error("OCR frame timeout")), 10000))
                 ]);
             } catch(frameError) {
                 if (String(frameError.message || frameError).includes("timeout")) {
-                    status.textContent = `OCR frame ${frame+1}/${totalFrames} timed out; continuing...`;
+                    status.textContent = `Frame ${frame+1}/${totalFrames} was too slow; restarting OCR worker and continuing...`;
+                    try { await ocrWorker.terminate(); } catch(e) {}
+                    ocrWorker = null;
+                    try { ocrWorker = await Tesseract.createWorker("eng"); } catch(e) { throw new Error("OCR worker could not be restarted."); }
                     continue;
                 }
                 throw frameError;
@@ -1127,7 +1132,7 @@ async function scanFastScrollSingle(videoEl) {
             // Keep multiple readings for the same match, then choose the
             // strongest reading. This prevents an early low-quality OCR
             // frame from permanently locking in a wrong score.
-            const key = team;
+            const key = team.toUpperCase().replace(/\s+/g," ").trim();
             if (!candidatesByTeam.has(key)) candidatesByTeam.set(key, []);
             candidatesByTeam.get(key).push({
                 time:formatVideoTime(actualTime),
