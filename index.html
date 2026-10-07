@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sequence AI Analyzer V35</title>
+<title>Sequence AI Analyzer V36 — Accuracy Scan</title>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -124,7 +124,7 @@ canvas{background:#fff;border-radius:12px;padding:8px}
 <div class="container">
 
 <header>
-    <h1>Sequence AI Analyzer <span class="small">V35</span></h1>
+    <h1>Sequence AI Analyzer <span class="small">V36 — Accuracy Scan</span></h1>
     <div class="subtitle">Analyze numerical data, detect patterns and scan screen-recorded scores.</div>
 </header>
 
@@ -195,7 +195,7 @@ canvas{background:#fff;border-radius:12px;padding:8px}
 
 <div class="card">
     <h2>🎥 Screen Recording</h2>
-    <p>Upload a screen recording containing the scrolling football scores. V35 is league-independent: France, England, and other competitions are supported; no team list is required.</p>
+    <p>Upload a screen recording containing the scrolling football scores. V36 Accuracy Scan is deliberately slowed for fast-scrolling recordings. France, England, and other competitions are supported; no team list is required.</p>
 
     <label class="file-label">
         📁 Choose Screen Recording 1
@@ -971,13 +971,13 @@ async function scanFastScroll() {
             document.getElementById('dataInput').value=sequence.join(', ');
             analyzeData();
             progress.style.width='100%';
-            status.textContent=`V35 scan complete: ${combined.length} confirmed unique score rows from ${files.length} video(s).${errors.length?' '+errors.join(' | '):''}`;
+            status.textContent=`V36 scan complete: ${combined.length} confirmed unique score rows from ${files.length} video(s).${errors.length?' '+errors.join(' | '):''}`;
         } else {
-            status.textContent=errors.length ? `V35 scan completed with no confirmed scores. ${errors.join(' | ')}` : 'V35 scan completed, but no confirmed FT scores were detected.';
+            status.textContent=errors.length ? `V36 scan completed with no confirmed scores. ${errors.join(' | ')}` : 'V36 scan completed, but no confirmed FT scores were detected.';
             resultsBox.textContent='No confirmed matches yet. Try a clearer recording or a slower scroll.';
         }
     } catch(err) {
-        console.error('V35 combined scan error',err);
+        console.error('V36 combined scan error',err);
         const safe=Array.isArray(allResults)?allResults:[];
         if(safe.length){
             const map=new Map();
@@ -986,9 +986,9 @@ async function scanFastScroll() {
             window.lastScanResults=retained;
             resultsBox.innerHTML=buildScanResultsTable(retained);
             updateExtractedSequenceAnalysis(retained);
-            status.textContent=`V35 recovered safely: ${retained.length} confirmed score rows retained. Error: ${err.message||err}`;
+            status.textContent=`V36 recovered safely: ${retained.length} confirmed score rows retained. Error: ${err.message||err}`;
         } else {
-            status.textContent=`V35 scan stopped safely: ${err.message||err}`;
+            status.textContent=`V36 scan stopped safely: ${err.message||err}`;
             resultsBox.textContent='No confirmed matches yet.';
         }
     }
@@ -1020,14 +1020,15 @@ async function scanFastScrollSingle(videoEl, sourceIndex=0) {
     const canvas=document.createElement('canvas');
     const ctx=canvas.getContext('2d',{willReadFrequently:true,alpha:false});
     if(!ctx) throw new Error('Browser could not create a video-frame canvas.');
-    const interval=0.55;
+    const interval=0.28;
     const totalFrames=Math.max(1,Math.ceil(duration/interval));
-    status.textContent=`V35 universal OCR: scanning ${totalFrames} frames. France, England and other competitions supported.`;
+    status.textContent=`V36 ACCURACY OCR: scanning ${totalFrames} frames at a deliberately slow interval. Multiple nearby frames are sampled to improve fast-scroll capture.`;
 
     for(let frame=0;frame<totalFrames;frame++){
         const targetTime=Math.min(frame*interval,Math.max(0,duration-0.05));
         const seekOK=await seekVideo(video,targetTime);
         if(!seekOK) continue;
+        await new Promise(resolve=>setTimeout(resolve,70));
         if(!video.videoWidth || !video.videoHeight) continue;
         canvas.width=video.videoWidth; canvas.height=video.videoHeight;
 
@@ -1047,13 +1048,13 @@ async function scanFastScrollSingle(videoEl, sourceIndex=0) {
         }
 
         if(progress) progress.style.width=(((frame+1)/totalFrames)*100).toFixed(1)+'%';
-        status.textContent=`V35 scanning ${frame+1} / ${totalFrames} • ${formatVideoTime(video.currentTime)}`;
+        status.textContent=`V36 accuracy scan ${frame+1} / ${totalFrames} • ${formatVideoTime(video.currentTime)} • slow multi-frame capture`;
 
         let result;
         try {
             result=await Promise.race([
                 ocrWorker.recognize(image),
-                new Promise((_,reject)=>setTimeout(()=>reject(new Error('OCR frame timeout')),9000))
+                new Promise((_,reject)=>setTimeout(()=>reject(new Error('OCR frame timeout')),12000))
             ]);
         } catch(frameError){
             if(String(frameError.message||frameError).includes('timeout')){
