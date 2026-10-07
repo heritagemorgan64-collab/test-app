@@ -703,7 +703,6 @@ function previewVideo(event) {
 
     const url = URL.createObjectURL(file);
     video.dataset.objectUrl = url;
-    video.crossOrigin = "anonymous";
     video.src = url;
     video.style.display = "block";
     video.load();
@@ -874,7 +873,6 @@ async function loadFileIntoVideo(file, video) {
     if (video.dataset.objectUrl) URL.revokeObjectURL(video.dataset.objectUrl);
     const url = URL.createObjectURL(file);
     video.dataset.objectUrl = url;
-    video.crossOrigin = "anonymous";
     video.src = url;
     video.style.display = "block";
     video.load();
@@ -897,6 +895,7 @@ async function scanFastScroll() {
     const allResults=[];
     const allEvidence=[];
     const files=[file1,file2].filter(Boolean);
+    let partialCombined=[];
     try{
         for(let i=0;i<files.length;i++){
             const targetVideo = i===0 ? document.getElementById('videoPreview') : document.getElementById('videoPreview2');
@@ -906,7 +905,7 @@ async function scanFastScroll() {
             // first video while the second one is being prepared.
             const results=await scanFastScrollSingle(targetVideo);
             if(Array.isArray(results)) results.forEach(r=>{r._source=i;});
-            if(Array.isArray(results)) allResults.push(...results);
+            if(Array.isArray(results)) { allResults.push(...results); partialCombined.push(...results); }
             if(Array.isArray(window.ocrEvidence)) allEvidence.push(...window.ocrEvidence);
             status.textContent=`Video ${i+1} of ${files.length} complete: ${Array.isArray(results)?results.length:0} confirmed matches.`;
         }
@@ -960,7 +959,7 @@ async function scanFastScroll() {
             analyzeData();
             status.textContent=`Combined scan complete: ${combined.length} unique confirmed matches merged from ${files.length} video(s). Video 1 and Video 2 were both retained.`;
         } else { status.textContent='Both videos scanned, but no confirmed FT scores were detected.'; }
-    }catch(err){ console.error(err); status.textContent='Combined scan failed: '+err.message; }
+    }catch(err){ console.error(err); status.textContent='Scan stopped safely: '+err.message+(partialCombined.length?` ${partialCombined.length} confirmed readings were retained.`:''); if(partialCombined.length){ const safeMap=new Map(); partialCombined.forEach(r=>{const k=(r.team||'').toUpperCase()+'|'+(r.score||''); if(k && !safeMap.has(k)) safeMap.set(k,r);}); const safe=Array.from(safeMap.values()); document.getElementById('betSlipResults').innerHTML=buildScanResultsTable(safe); updateExtractedSequenceAnalysis(safe); window.lastScanResults=safe; }}
 }
 
 async function scanFastScrollSingle(videoEl) {
