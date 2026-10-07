@@ -980,6 +980,8 @@ async function scanFastScrollSingle(videoEl) {
         return;
     }
 
+    const confirmed = new Map();
+
     try {
         status.textContent =
             "Preparing high-accuracy OCR scanner...";
@@ -1017,7 +1019,6 @@ async function scanFastScrollSingle(videoEl) {
         );
 
         const candidatesByTeam = new Map();
-        const confirmed = new Map();
 
         status.textContent = `Universal football OCR: scanning ${totalFrames} sampled frames. No England-only team list is used.`;
 
