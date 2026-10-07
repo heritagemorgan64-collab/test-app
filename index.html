@@ -703,6 +703,7 @@ function previewVideo(event) {
 
     const url = URL.createObjectURL(file);
     video.dataset.objectUrl = url;
+    video.crossOrigin = "anonymous";
     video.src = url;
     video.style.display = "block";
     video.load();
@@ -873,6 +874,7 @@ async function loadFileIntoVideo(file, video) {
     if (video.dataset.objectUrl) URL.revokeObjectURL(video.dataset.objectUrl);
     const url = URL.createObjectURL(file);
     video.dataset.objectUrl = url;
+    video.crossOrigin = "anonymous";
     video.src = url;
     video.style.display = "block";
     video.load();
@@ -1045,13 +1047,29 @@ async function scanFastScrollSingle(videoEl) {
                 throw new Error("Video frame size is unavailable.");
             }
 
-            ctx.drawImage(
-                video,
-                0,
-                0,
-                canvas.width,
-                canvas.height
-            );
+            // Prefer an ImageBitmap snapshot. This avoids the browser canvas
+            // export/toBlob path that can fail with some mobile video decoders.
+            let ocrImage = canvas;
+            let bitmap = null;
+            try {
+                if (typeof createImageBitmap === "function") {
+                    bitmap = await createImageBitmap(video);
+                    ocrImage = bitmap;
+                } else {
+                    ctx.drawImage(video,0,0,canvas.width,canvas.height);
+                }
+            } catch(snapshotError) {
+                try {
+                    ctx.drawImage(video,0,0,canvas.width,canvas.height);
+                    // Test whether this frame can be exported before sending it
+                    // to OCR. A tainted frame is skipped, not fatal.
+                    canvas.toBlob(()=>{},"image/jpeg",0.85);
+                    ocrImage = canvas;
+                } catch(exportError) {
+                    status.textContent = `Skipping unreadable video position ${formatVideoTime(targetTime)}...`;
+                    continue;
+                }
+            }
 
             const percent =
                 ((frame+1)/totalFrames)*100;
@@ -1072,7 +1090,7 @@ async function scanFastScrollSingle(videoEl) {
             let result;
             try {
                 result = await Promise.race([
-                    ocrWorker.recognize(canvas),
+                    ocrWorker.recognize(ocrImage),
                     new Promise((_, reject) => setTimeout(() => reject(new Error("OCR frame timeout")), 10000))
                 ]);
             } catch(frameError) {
@@ -1084,6 +1102,8 @@ async function scanFastScrollSingle(videoEl) {
                     continue;
                 }
                 throw frameError;
+            } finally {
+                if (bitmap && typeof bitmap.close === "function") bitmap.close();
             }
 
             const confidence = Number(result.data.confidence || 0);
@@ -1218,11 +1238,15 @@ async function scanFastScrollSingle(videoEl) {
     } catch(error) {
         console.error(error);
 
-        status.textContent =
-            "OCR scanning failed. " + error.message;
-
-        resultsBox.textContent =
-            "Scanner error: " + error.message;
+        const partial = Array.from(confirmed.values());
+        if (partial.length) {
+            resultsBox.innerHTML = buildScanResultsTable(partial);
+            window.lastScanResults = partial;
+            status.textContent = `Scan stopped safely after a video-frame error. ${partial.length} confirmed reading(s) were retained.`;
+        } else {
+            status.textContent = "OCR scanning could not read this video frame safely. No results were lost because no confirmed matches were available yet.";
+            resultsBox.textContent = "No confirmed matches yet. Try the scan again with the same video.";
+        }
     }
 }
 
