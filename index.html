@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sequence AI Analyzer</title>
+<title>Sequence AI Analyzer V35</title>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -124,7 +124,7 @@ canvas{background:#fff;border-radius:12px;padding:8px}
 <div class="container">
 
 <header>
-    <h1>Sequence AI Analyzer</h1>
+    <h1>Sequence AI Analyzer <span class="small">V35</span></h1>
     <div class="subtitle">Analyze numerical data, detect patterns and scan screen-recorded scores.</div>
 </header>
 
@@ -195,7 +195,7 @@ canvas{background:#fff;border-radius:12px;padding:8px}
 
 <div class="card">
     <h2>🎥 Screen Recording</h2>
-    <p>Upload a screen recording containing the scrolling football scores. The scanner is league-independent: France, England, and other competitions are supported; no team list is required.</p>
+    <p>Upload a screen recording containing the scrolling football scores. V35 is league-independent: France, England, and other competitions are supported; no team list is required.</p>
 
     <label class="file-label">
         📁 Choose Screen Recording 1
@@ -891,365 +891,216 @@ async function scanFastScroll() {
     const file1=input1 && input1.files[0];
     const file2=input2 && input2.files[0];
     const status=document.getElementById('ocrStatus');
+    const resultsBox=document.getElementById('betSlipResults');
+    const progress=document.getElementById('scanProgress');
     if(!file1 && !file2){ status.textContent='Please upload at least one screen recording first.'; return; }
+
+    const files=[file1,file2].filter(Boolean);
     const allResults=[];
     const allEvidence=[];
-    const files=[file1,file2].filter(Boolean);
-    let partialCombined=[];
-    try{
+    const errors=[];
+    window.lastScanResults=[];
+    if(progress) progress.style.width='0%';
+    if(resultsBox) resultsBox.textContent='Starting universal football score scan...';
+
+    try {
         for(let i=0;i<files.length;i++){
             const targetVideo = i===0 ? document.getElementById('videoPreview') : document.getElementById('videoPreview2');
             status.textContent=`Preparing video ${i+1} of ${files.length}...`;
-            await loadFileIntoVideo(files[i], targetVideo);
-            // Scan each video element independently. This avoids replacing the
-            // first video while the second one is being prepared.
-            const results=await scanFastScrollSingle(targetVideo);
-            if(Array.isArray(results)) results.forEach(r=>{r._source=i;});
-            if(Array.isArray(results)) { allResults.push(...results); partialCombined.push(...results); }
-            if(Array.isArray(window.ocrEvidence)) allEvidence.push(...window.ocrEvidence);
-            status.textContent=`Video ${i+1} of ${files.length} complete: ${Array.isArray(results)?results.length:0} confirmed matches.`;
+            try {
+                await loadFileIntoVideo(files[i], targetVideo);
+                const results=await scanFastScrollSingle(targetVideo, i);
+                if(Array.isArray(results)){
+                    results.forEach(r=>{ r._source=i; allResults.push(r); });
+                }
+                if(Array.isArray(window.ocrEvidence)) allEvidence.push(...window.ocrEvidence);
+                status.textContent=`Video ${i+1} of ${files.length} complete: ${Array.isArray(results)?results.length:0} confirmed matches.`;
+            } catch(videoError) {
+                console.error(`Video ${i+1} scan error`,videoError);
+                errors.push(`Video ${i+1}: ${videoError.message || videoError}`);
+                status.textContent=`Video ${i+1} had a problem; continuing safely...`;
+            }
         }
-        // Merge both videos without letting Video 2 replace Video 1.
-        // A duplicate is the same team pairing AND the same score.
-        // The same teams with a different score are kept as separate
-        // historical match readings.
+
+        // De-duplicate only an identical pairing + identical score.
+        // Different scores for the same pairing are retained as separate observations.
         const dedupe=new Map();
         allResults.forEach(r=>{
-            const team=(r.team||'').trim().toUpperCase();
-            const score=(r.score||'').trim();
+            const team=String(r.team||'').trim().toUpperCase().replace(/\s+/g,' ');
+            const score=String(r.score||'').trim();
             if(!team || !score) return;
             const key=team+'|'+score;
             const old=dedupe.get(key);
-            if(!old || (r.confidence||0)>(old.confidence||0)) {
-                dedupe.set(key,r);
-            }
+            if(!old || Number(r.confidence||0)>Number(old.confidence||0)) dedupe.set(key,r);
         });
         const combined=Array.from(dedupe.values()).sort((a,b)=>{
-            if((a._source||0)!==(b._source||0)) return (a._source||0)-(b._source||0);
-            const ta=(a.time||'00:00').split(':').map(Number); const tb=(b.time||'00:00').split(':').map(Number);
-            return (ta[0]*60+ta[1])-(tb[0]*60+tb[1]);
+            const sa=Number(a._source||0), sb=Number(b._source||0);
+            if(sa!==sb) return sa-sb;
+            const toSec=t=>{const m=String(t||'00:00').split(':').map(Number);return (m[0]||0)*60+(m[1]||0);};
+            return toSec(a.time)-toSec(b.time);
         });
-        // Keep evidence from both recordings, grouped by team.
+
+        // Merge evidence by pairing + score, never by team name alone.
         const evMap=new Map();
         allEvidence.forEach(e=>{
-            const team=(e.team||'').trim().toUpperCase();
-            const score=(e.score||'').trim();
-            const k=team+'|'+score;
+            const team=String(e.team||'').trim().toUpperCase().replace(/\s+/g,' ');
+            const score=String(e.score||'').trim();
             if(!team || !score) return;
-            if(!evMap.has(k)) evMap.set(k,[]);
-            evMap.get(k).push(e);
+            const key=team+'|'+score;
+            if(!evMap.has(key)) evMap.set(key,[]);
+            evMap.get(key).push(e);
         });
         const mergedEvidence=Array.from(evMap.entries()).map(([key,arr])=>{
-            const readings=arr.reduce((n,e)=>n+(e.readings||1),0);
-            const conf=Math.round(arr.reduce((n,e)=>n+(e.confidence||0)*(e.readings||1),0)/Math.max(1,readings));
-            const agreement=Math.round(arr.reduce((n,e)=>n+(e.agreement||0)*(e.readings||1),0)/Math.max(1,readings));
-            const chosen=combined.find(r=>{
-                const rk=(r.team||'').trim().toUpperCase()+'|'+(r.score||'').trim();
-                return rk===key;
-            });
-            return {team:chosen?chosen.team:key.split('|')[0],score:chosen?chosen.score:key.split('|')[1],readings,confidence:conf,agreement};
+            const readings=arr.reduce((n,e)=>n+Number(e.readings||1),0);
+            const weighted=(field)=>arr.reduce((n,e)=>n+Number(e[field]||0)*Number(e.readings||1),0)/Math.max(1,readings);
+            const [team,score]=key.split('|');
+            return {team,score,readings,confidence:Math.round(weighted('confidence')),agreement:Math.round(weighted('agreement'))};
         });
         window.ocrEvidence=mergedEvidence;
         updateScanQualityDashboard(mergedEvidence);
+
         if(combined.length){
-            document.getElementById('betSlipResults').innerHTML=buildScanResultsTable(combined);
+            combined.forEach(r=>{
+                const ev=mergedEvidence.find(e=>e.team===String(r.team||'').trim().toUpperCase().replace(/\s+/g,' ') && e.score===String(r.score||'').trim());
+                if(ev){r.readings=ev.readings;r.consensus=ev.agreement;r.confidence=ev.confidence;}
+            });
+            resultsBox.innerHTML=buildScanResultsTable(combined);
+            window.lastScanResults=combined;
             updateExtractedSequenceAnalysis(combined);
             const sequence=combined.map(r=>parseScoreText(r.score)).filter(Boolean).map(s=>s.home+s.away);
             document.getElementById('dataInput').value=sequence.join(', ');
             analyzeData();
-            status.textContent=`Combined scan complete: ${combined.length} unique confirmed matches merged from ${files.length} video(s). Video 1 and Video 2 were both retained.`;
-        } else { status.textContent='Both videos scanned, but no confirmed FT scores were detected.'; }
-    }catch(err){ console.error(err); status.textContent='Scan stopped safely: '+err.message+(partialCombined.length?` ${partialCombined.length} confirmed readings were retained.`:''); if(partialCombined.length){ const safeMap=new Map(); partialCombined.forEach(r=>{const k=(r.team||'').toUpperCase()+'|'+(r.score||''); if(k && !safeMap.has(k)) safeMap.set(k,r);}); const safe=Array.from(safeMap.values()); document.getElementById('betSlipResults').innerHTML=buildScanResultsTable(safe); updateExtractedSequenceAnalysis(safe); window.lastScanResults=safe; }}
-}
-
-async function scanFastScrollSingle(videoEl) {
-    const video = videoEl || document.getElementById("videoPreview");
-    const status = document.getElementById("ocrStatus");
-    const resultsBox = document.getElementById("betSlipResults");
-    const progress = document.getElementById("scanProgress");
-
-    if (!video || !video.src) {
-        status.textContent =
-            "Please upload a screen recording first.";
-        return;
-    }
-
-    if (typeof Tesseract === "undefined") {
-        status.textContent =
-            "OCR engine is not loaded. Check your internet connection.";
-        return;
-    }
-
-    const confirmed = new Map();
-
-    try {
-        status.textContent =
-            "Preparing high-accuracy OCR scanner...";
-
-        if (!ocrWorker) {
-            ocrWorker = await Tesseract.createWorker("eng");
-        }
-
-        if (!video.duration || !isFinite(video.duration)) {
-            await new Promise(resolve => {
-                video.addEventListener("loadedmetadata", resolve, {
-                    once:true
-                });
-            });
-        }
-
-        const duration = video.duration;
-
-        if (!duration || !isFinite(duration)) {
-            throw new Error("Could not read video duration.");
-        }
-
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d", {
-            willReadFrequently:true
-        });
-
-        /*
-         * 0.45 seconds is a balance between speed and coverage.
-         */
-        const interval = 0.55;
-        const totalFrames = Math.max(
-            1,
-            Math.ceil(duration / interval)
-        );
-
-        const candidatesByTeam = new Map();
-
-        status.textContent = `Universal football OCR: scanning ${totalFrames} sampled frames. No England-only team list is used.`;
-
-        for (let frame=0; frame<totalFrames; frame++) {
-
-            const targetTime = Math.min(
-                frame * interval,
-                Math.max(0,duration - 0.05)
-            );
-
-            /*
-             * Seek to the exact video position.
-             */
-            const seekOK = await seekVideo(video,targetTime);
-            if (!seekOK) {
-                status.textContent = `Skipping unreadable video position ${formatVideoTime(targetTime)}...`;
-                continue;
-            }
-
-            const actualTime = video.currentTime;
-
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-
-            if (!canvas.width || !canvas.height) {
-                throw new Error("Video frame size is unavailable.");
-            }
-
-            // Prefer an ImageBitmap snapshot. This avoids the browser canvas
-            // export/toBlob path that can fail with some mobile video decoders.
-            let ocrImage = canvas;
-            let bitmap = null;
-            try {
-                if (typeof createImageBitmap === "function") {
-                    bitmap = await createImageBitmap(video);
-                    ocrImage = bitmap;
-                } else {
-                    ctx.drawImage(video,0,0,canvas.width,canvas.height);
-                }
-            } catch(snapshotError) {
-                try {
-                    ctx.drawImage(video,0,0,canvas.width,canvas.height);
-                    // Test whether this frame can be exported before sending it
-                    // to OCR. A tainted frame is skipped, not fatal.
-                    canvas.toBlob(()=>{},"image/jpeg",0.85);
-                    ocrImage = canvas;
-                } catch(exportError) {
-                    status.textContent = `Skipping unreadable video position ${formatVideoTime(targetTime)}...`;
-                    continue;
-                }
-            }
-
-            const percent =
-                ((frame+1)/totalFrames)*100;
-
-            progress.style.width =
-                percent.toFixed(1) + "%";
-
-            status.textContent =
-                "Scanning " +
-                (frame+1) +
-                " / " +
-                totalFrames +
-                " • " +
-                formatVideoTime(actualTime);
-
-            // Tesseract can occasionally hang on a difficult frame.
-            // Never allow one bad frame to freeze the entire scan.
-            let result;
-            try {
-                result = await Promise.race([
-                    ocrWorker.recognize(ocrImage),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error("OCR frame timeout")), 10000))
-                ]);
-            } catch(frameError) {
-                if (String(frameError.message || frameError).includes("timeout")) {
-                    status.textContent = `Frame ${frame+1}/${totalFrames} was too slow; restarting OCR worker and continuing...`;
-                    try { await ocrWorker.terminate(); } catch(e) {}
-                    ocrWorker = null;
-                    try { ocrWorker = await Tesseract.createWorker("eng"); } catch(e) { throw new Error("OCR worker could not be restarted."); }
-                    continue;
-                }
-                throw frameError;
-            } finally {
-                if (bitmap && typeof bitmap.close === "function") bitmap.close();
-            }
-
-            const confidence = Number(result.data.confidence || 0);
-            if (confidence < 50) {
-                continue;
-            }
-
-            const text = result.data.text || "";
-
-            const lines = text
-                .split(/\r?\n/)
-                .map(line =>
-                    line.replace(/\s+/g," ").trim()
-                )
-                .filter(Boolean);
-
-            const score = extractFTScore(text,lines);
-
-            /*
-             * Reject random / impossible values.
-             */
-            if (!score ||
-                score.home > 20 ||
-                score.away > 20) {
-                continue;
-            }
-
-            const scoreText =
-                score.home + "-" + score.away;
-
-            const scoreIndex =
-                lines.findIndex(line => /FT\s*Score/i.test(line));
-
-            const team = findTeam(
-                lines,
-                scoreIndex >= 0
-                    ? scoreIndex
-                    : Math.floor(lines.length/2)
-            );
-
-            /*
-             * Team + FT score are both required.
-             */
-            if (!team) continue;
-
-            // Keep multiple readings for the same match, then choose the
-            // strongest reading. This prevents an early low-quality OCR
-            // frame from permanently locking in a wrong score.
-            const key = team.toUpperCase().replace(/\s+/g," ").trim();
-            if (!candidatesByTeam.has(key)) candidatesByTeam.set(key, []);
-            candidatesByTeam.get(key).push({
-                time:formatVideoTime(actualTime),
-                team:team,
-                score:scoreText,
-                confidence:Math.round(confidence)
-            });
-
-            const bestByTeam = [];
-            for (const [teamKey, readings] of candidatesByTeam.entries()) {
-                const scoreGroups = {};
-                readings.forEach(r=>{
-                    if(!scoreGroups[r.score]) scoreGroups[r.score]=[];
-                    scoreGroups[r.score].push(r);
-                });
-                const ranked = Object.values(scoreGroups).sort((a,b)=>{
-                    const aVotes=a.length, bVotes=b.length;
-                    if(bVotes!==aVotes) return bVotes-aVotes;
-                    return Math.max(...b.map(x=>x.confidence))-Math.max(...a.map(x=>x.confidence));
-                });
-                const group=ranked[0];
-                const best=group.slice().sort((a,b)=>b.confidence-a.confidence)[0];
-                bestByTeam.push({...best, confidence:Math.round(averageOf(group.map(x=>x.confidence)))});
-            }
-            confirmed.clear();
-            bestByTeam.forEach(r=>confirmed.set(r.team,r));
-            resultsBox.innerHTML=buildScanResultsTable(Array.from(confirmed.values()));
-        }
-
-        const evidence = [];
-        for (const [teamKey, readings] of candidatesByTeam.entries()) {
-            const scoreGroups = {};
-            readings.forEach(r=>{
-                if(!scoreGroups[r.score]) scoreGroups[r.score]=[];
-                scoreGroups[r.score].push(r);
-            });
-            const ranked = Object.entries(scoreGroups).sort((a,b)=>{
-                if (b[1].length !== a[1].length) return b[1].length-a[1].length;
-                return Math.max(...b[1].map(x=>x.confidence))-Math.max(...a[1].map(x=>x.confidence));
-            });
-            const [chosenScore, chosenGroup] = ranked[0] || [null, []];
-            const totalReadings = readings.length;
-            const agreement = totalReadings ? Math.round((chosenGroup.length/totalReadings)*100) : 0;
-            const avgConfidence = chosenGroup.length ? Math.round(averageOf(chosenGroup.map(x=>x.confidence))) : 0;
-            evidence.push({team:teamKey, score:chosenScore, readings:totalReadings, agreement, confidence:avgConfidence, alternatives:ranked.slice(1,3).map(x=>`${x[0]} (${x[1].length}×)`) });
-        }
-        window.ocrEvidence = evidence;
-
-        const evidenceMap = new Map(evidence.map(x=>[x.team, x]));
-        for (const r of confirmed.values()) {
-            const ev = evidenceMap.get(r.team);
-            if (ev) { r.readings=ev.readings; r.consensus=ev.agreement; r.confidence=ev.confidence; }
-        }
-
-        updateScanQualityDashboard(evidence);
-
-        const finalResults =
-            Array.from(confirmed.values()).sort((a,b)=>{
-                const [am,as]=a.time.split(":").map(Number), [bm,bs]=b.time.split(":").map(Number);
-                return (am*60+as)-(bm*60+bs);
-            });
-
-        if (!finalResults.length) {
-            status.textContent =
-                "Scan complete, but no confirmed FT scores were detected in this video.";
-            window.lastScanResults = [];
-            return [];
-        }
-
-        resultsBox.innerHTML =
-            buildScanResultsTable(finalResults);
-
-        window.lastScanResults = finalResults;
-        updateExtractedSequenceAnalysis(finalResults);
-
-        status.textContent =
-            "Scan complete. " +
-            finalResults.length +
-            " confirmed score reading(s) detected.";
-
-        progress.style.width = "100%";
-
-    } catch(error) {
-        console.error(error);
-
-        const partial = Array.from(confirmed.values());
-        if (partial.length) {
-            resultsBox.innerHTML = buildScanResultsTable(partial);
-            window.lastScanResults = partial;
-            status.textContent = `Scan stopped safely after a video-frame error. ${partial.length} confirmed reading(s) were retained.`;
+            progress.style.width='100%';
+            status.textContent=`V35 scan complete: ${combined.length} confirmed unique score rows from ${files.length} video(s).${errors.length?' '+errors.join(' | '):''}`;
         } else {
-            status.textContent = "OCR scanning could not read this video frame safely. No results were lost because no confirmed matches were available yet.";
-            resultsBox.textContent = "No confirmed matches yet. Try the scan again with the same video.";
+            status.textContent=errors.length ? `V35 scan completed with no confirmed scores. ${errors.join(' | ')}` : 'V35 scan completed, but no confirmed FT scores were detected.';
+            resultsBox.textContent='No confirmed matches yet. Try a clearer recording or a slower scroll.';
+        }
+    } catch(err) {
+        console.error('V35 combined scan error',err);
+        const safe=Array.isArray(allResults)?allResults:[];
+        if(safe.length){
+            const map=new Map();
+            safe.forEach(r=>{const k=String(r.team||'').trim().toUpperCase().replace(/\s+/g,' ')+'|'+String(r.score||'').trim();if(!map.has(k))map.set(k,r);});
+            const retained=Array.from(map.values());
+            window.lastScanResults=retained;
+            resultsBox.innerHTML=buildScanResultsTable(retained);
+            updateExtractedSequenceAnalysis(retained);
+            status.textContent=`V35 recovered safely: ${retained.length} confirmed score rows retained. Error: ${err.message||err}`;
+        } else {
+            status.textContent=`V35 scan stopped safely: ${err.message||err}`;
+            resultsBox.textContent='No confirmed matches yet.';
         }
     }
 }
 
+async function scanFastScrollSingle(videoEl, sourceIndex=0) {
+    const video=videoEl;
+    const status=document.getElementById('ocrStatus');
+    const resultsBox=document.getElementById('betSlipResults');
+    const progress=document.getElementById('scanProgress');
+    if(!video || !video.src) throw new Error('Video is not ready.');
+    if(typeof Tesseract==='undefined') throw new Error('OCR engine is not loaded. Check the internet connection.');
+
+    // Pair+score is the observation key. Never collapse all matches for one team.
+    const observations=new Map();
+    const candidates=new Map();
+
+    if(!ocrWorker) ocrWorker=await Tesseract.createWorker('eng');
+    if(!video.duration || !isFinite(video.duration)){
+        await new Promise((resolve,reject)=>{
+            const timer=setTimeout(()=>reject(new Error('Video metadata timed out.')),8000);
+            video.addEventListener('loadedmetadata',()=>{clearTimeout(timer);resolve();},{once:true});
+            video.addEventListener('error',()=>{clearTimeout(timer);reject(new Error('Video could not be decoded.'));},{once:true});
+        });
+    }
+    const duration=video.duration;
+    if(!duration || !isFinite(duration)) throw new Error('Could not read video duration.');
+
+    const canvas=document.createElement('canvas');
+    const ctx=canvas.getContext('2d',{willReadFrequently:true,alpha:false});
+    if(!ctx) throw new Error('Browser could not create a video-frame canvas.');
+    const interval=0.55;
+    const totalFrames=Math.max(1,Math.ceil(duration/interval));
+    status.textContent=`V35 universal OCR: scanning ${totalFrames} frames. France, England and other competitions supported.`;
+
+    for(let frame=0;frame<totalFrames;frame++){
+        const targetTime=Math.min(frame*interval,Math.max(0,duration-0.05));
+        const seekOK=await seekVideo(video,targetTime);
+        if(!seekOK) continue;
+        if(!video.videoWidth || !video.videoHeight) continue;
+        canvas.width=video.videoWidth; canvas.height=video.videoHeight;
+
+        let image=canvas, bitmap=null;
+        try {
+            // No toBlob/toDataURL: these are unnecessary for OCR and can trigger
+            // the mobile 'tainted canvas' export error.
+            if(typeof createImageBitmap==='function'){
+                try { bitmap=await createImageBitmap(video); image=bitmap; }
+                catch(e){ ctx.drawImage(video,0,0,canvas.width,canvas.height); image=canvas; }
+            } else {
+                ctx.drawImage(video,0,0,canvas.width,canvas.height); image=canvas;
+            }
+        } catch(frameCaptureError){
+            if(bitmap && bitmap.close) bitmap.close();
+            continue;
+        }
+
+        if(progress) progress.style.width=(((frame+1)/totalFrames)*100).toFixed(1)+'%';
+        status.textContent=`V35 scanning ${frame+1} / ${totalFrames} • ${formatVideoTime(video.currentTime)}`;
+
+        let result;
+        try {
+            result=await Promise.race([
+                ocrWorker.recognize(image),
+                new Promise((_,reject)=>setTimeout(()=>reject(new Error('OCR frame timeout')),9000))
+            ]);
+        } catch(frameError){
+            if(String(frameError.message||frameError).includes('timeout')){
+                try{await ocrWorker.terminate();}catch(e){}
+                ocrWorker=null;
+                try{ocrWorker=await Tesseract.createWorker('eng');}catch(e){ if(bitmap&&bitmap.close)bitmap.close(); continue; }
+                if(bitmap&&bitmap.close)bitmap.close();
+                continue;
+            }
+            if(bitmap&&bitmap.close)bitmap.close();
+            continue;
+        }
+        if(bitmap&&bitmap.close) bitmap.close();
+
+        const confidence=Number(result?.data?.confidence||0);
+        if(confidence<50) continue;
+        const text=result?.data?.text||'';
+        const lines=text.split(/\r?\n/).map(x=>x.replace(/\s+/g,' ').trim()).filter(Boolean);
+        const score=extractFTScore(text,lines);
+        if(!score || score.home>15 || score.away>15) continue;
+        const scoreText=`${score.home}-${score.away}`;
+        const scoreIndex=lines.findIndex(line=>/FT\s*Score/i.test(line));
+        const team=findTeam(lines,scoreIndex>=0?scoreIndex:Math.floor(lines.length/2));
+        if(!team) continue;
+        const pairKey=team.toUpperCase().replace(/\s+/g,' ').trim();
+        const key=pairKey+'|'+scoreText;
+        if(!candidates.has(key)) candidates.set(key,[]);
+        candidates.get(key).push({time:formatVideoTime(video.currentTime),team,score:scoreText,confidence:Math.round(confidence),_source:sourceIndex});
+
+        // A confirmed row is the strongest reading for this exact pair+score.
+        const readings=candidates.get(key);
+        const best=readings.slice().sort((a,b)=>b.confidence-a.confidence)[0];
+        observations.set(key,{...best,readings:readings.length,consensus:100,confidence:Math.round(averageOf(readings.map(x=>x.confidence)))});
+        resultsBox.innerHTML=buildScanResultsTable(Array.from(observations.values()).sort((a,b)=>a.time.localeCompare(b.time)));
+    }
+
+    const finalResults=Array.from(observations.values()).sort((a,b)=>{
+        const sec=t=>{const x=String(t||'00:00').split(':').map(Number);return (x[0]||0)*60+(x[1]||0);};
+        return sec(a.time)-sec(b.time);
+    });
+    const evidence=finalResults.map(r=>({team:String(r.team||'').trim().toUpperCase().replace(/\s+/g,' '),score:r.score,readings:r.readings||1,agreement:r.consensus||100,confidence:r.confidence||0}));
+    window.ocrEvidence=evidence;
+    updateScanQualityDashboard(evidence);
+    window.lastScanResults=finalResults;
+    if(finalResults.length) updateExtractedSequenceAnalysis(finalResults);
+    return finalResults;
+}
 
 function parseScoreText(scoreText) {
     const match = String(scoreText || "").match(/^(\d+)\s*-\s*(\d+)$/);
