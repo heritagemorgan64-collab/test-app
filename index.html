@@ -1020,15 +1020,15 @@ async function scanFastScrollSingle(videoEl, sourceIndex=0) {
     const canvas=document.createElement('canvas');
     const ctx=canvas.getContext('2d',{willReadFrequently:true,alpha:false});
     if(!ctx) throw new Error('Browser could not create a video-frame canvas.');
-    const interval=0.28;
+    const interval=0.80;
     const totalFrames=Math.max(1,Math.ceil(duration/interval));
-    status.textContent=`V36 ACCURACY OCR: scanning ${totalFrames} frames at a deliberately slow interval. Multiple nearby frames are sampled to improve fast-scroll capture.`;
+    status.textContent=`V36 SLOW ACCURACY OCR: scanning ${totalFrames} frames at a very slow accuracy-first interval. Extra rendering time is given to each frame so fast-scrolling rows can be captured clearly.`;
 
     for(let frame=0;frame<totalFrames;frame++){
         const targetTime=Math.min(frame*interval,Math.max(0,duration-0.05));
         const seekOK=await seekVideo(video,targetTime);
         if(!seekOK) continue;
-        await new Promise(resolve=>setTimeout(resolve,70));
+        await new Promise(resolve=>setTimeout(resolve,220));
         if(!video.videoWidth || !video.videoHeight) continue;
         canvas.width=video.videoWidth; canvas.height=video.videoHeight;
 
